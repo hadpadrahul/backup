@@ -205,7 +205,7 @@ if (Get-Command eza -ErrorAction SilentlyContinue) {
 
     # All files, sorted by modified time (long view)
     function ll {
-        eza @EZA_BASE @EZA_LONG '--sort=modified' @args
+        eza @EZA_BASE @EZA_LONG '--sort=modified' '--reverse' @args
     }
 
     # Tree view (default depth = 2)
