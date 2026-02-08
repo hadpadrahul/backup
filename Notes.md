@@ -1,7 +1,7 @@
 # CLI Tools & Terminal Productivity
 
 ## In short
-Fastfetch, Htop, Fzf, Fd, sd, Rg, Duf, dust, Eza, Jq, yq, Zoxide, yazi, Bat, xh, sd, tldr, delta, lazygit, direnv, yazi or broot, jless
+Fastfetch, Htop, Fzf, Fd, sd, Rg, Duf, dust, Eza, Jq, yq, Zoxide, yazi, Bat, xh, tldr, delta, lazygit, direnv, yazi or broot, jless, zip, unzip
 
 ## Check out
 - Stow / chezmoi

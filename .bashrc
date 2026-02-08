@@ -118,44 +118,72 @@ if command -v dircolors >/dev/null 2>&1; then
 fi
 
 ########################
-# FZF CONFIG          #
+# RAW FZF CONFIG       #
 ########################
 # Load distro-provided fzf keybindings & completion
-if [ -f /usr/share/doc/fzf/examples/key-bindings.bash ]; then
-    source /usr/share/doc/fzf/examples/key-bindings.bash
-fi
-if [ -f /usr/share/doc/fzf/examples/completion.bash ]; then
-    source /usr/share/doc/fzf/examples/completion.bash
-fi
+# if [ -f /usr/share/doc/fzf/examples/key-bindings.bash ]; then
+#     source /usr/share/doc/fzf/examples/key-bindings.bash
+# fi
+# if [ -f /usr/share/doc/fzf/examples/completion.bash ]; then
+#     source /usr/share/doc/fzf/examples/completion.bash
+# fi
 
 # Ctrl+r → fuzzy history search (overrides default if fzf exists)
-if command -v fzf >/dev/null 2>&1; then
-__fzf_history__() {
-    local selected
-    selected=$(history | sed 's/^[ ]*[0-9]\+[ ]*//' | tac |
-        fzf --height=40% --reverse --border --prompt="History > ")
-    if [ -n "$selected" ]; then
-        READLINE_LINE="$selected"
-        READLINE_POINT=${#READLINE_LINE}
-    fi
-}
-bind -x '"\C-r": __fzf_history__'
-fi
+# if command -v fzf >/dev/null 2>&1; then
+# __fzf_history__() {
+#     local selected
+#     selected=$(history | sed 's/^[ ]*[0-9]\+[ ]*//' | tac |
+#         fzf --height=40% --reverse --border --prompt="History > ")
+#     if [ -n "$selected" ]; then
+#         READLINE_LINE="$selected"
+#         READLINE_POINT=${#READLINE_LINE}
+#     fi
+# }
+# bind -x '"\C-r": __fzf_history__'
+# fi
 
-# Ctrl+t → fuzzy file picker (fd + bat optional)
-if command -v fzf >/dev/null 2>&1 && command -v fd >/dev/null 2>&1; then
-__fzf_file__() {
-    local selected
-    selected=$(fd --hidden --follow --exclude .git 2>/dev/null |
-        fzf --height=40% --reverse --border \
-            --preview 'command -v bat >/dev/null 2>&1 && bat --style=numbers --color=always --line-range :500 {}')
-    if [ -n "$selected" ]; then
-        READLINE_LINE+="$selected"
-        READLINE_POINT=${#READLINE_LINE}
-    fi
-}
-bind -x '"\C-t": __fzf_file__'
-fi
+# # Ctrl+t → fuzzy file picker (fd + bat optional)
+# if command -v fzf >/dev/null 2>&1 && command -v fd >/dev/null 2>&1; then
+# __fzf_file__() {
+#     local selected
+#     selected=$(fd --hidden --follow --exclude .git 2>/dev/null |
+#         fzf --height=40% --reverse --border \
+#             --preview 'command -v bat >/dev/null 2>&1 && bat --style=numbers --color=always --line-range :500 {}')
+#     if [ -n "$selected" ]; then
+#         READLINE_LINE+="$selected"
+#         READLINE_POINT=${#READLINE_LINE}
+#     fi
+# }
+# bind -x '"\C-t": __fzf_file__'
+# fi
+
+########################
+# FZF CONFIG (NEW)    #
+########################
+
+# Load official fzf bash integration
+# This sets up default keybindings:
+#   Ctrl+T → file search
+#   Ctrl+R → command history
+#   Alt+C  → directory jump
+eval "$(fzf --bash)"
+
+# Use fd as the default source for fzf
+# - Includes hidden files
+# - Excludes .git
+# - Faster and smarter than 'find'
+export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --exclude .git'
+
+# Ensure Ctrl+T uses the same fd-based command
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+
+# Global fzf options
+# - 40% height popup
+# - Reverse layout (prompt at bottom)
+# - Border enabled
+# - bat preview with syntax highlighting and line numbers
+export FZF_DEFAULT_OPTS="--height 40% --reverse --border \
+  --preview 'bat --style=numbers --color=always --line-range :500 {}'"
 
 ########################
 # ZOXIDE CONFIG       #
