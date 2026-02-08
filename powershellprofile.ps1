@@ -94,12 +94,25 @@ Set-PSReadLineKeyHandler -Key Ctrl+l          -Function ClearScreen
 Set-PSReadLineKeyHandler -Key Alt+.           -Function YankLastArg
 
 # ----------------------------------------
-# History & Navigation Enhancements (fzf + fd)
+# History & Navigation Enhancements (fzf)
 # ----------------------------------------
 
-$env:FZF_DEFAULT_OPTS     = '--height=40% --reverse --border --cycle'
-$env:FZF_DEFAULT_COMMAND  = 'fd --hidden --follow --exclude .git'
+# Base fzf UI defaults (safe everywhere)
+$env:FZF_DEFAULT_OPTS = '--height=40% --reverse --border --cycle'
 
+# ----------------------
+# fd integration (safe)
+# ----------------------
+# Use fd for files + directories if available, otherwise fall back to PowerShell
+if (Get-Command fd -ErrorAction SilentlyContinue) {
+    $env:FZF_DEFAULT_COMMAND = 'fd --hidden --follow --exclude .git'
+} else {
+    $env:FZF_DEFAULT_COMMAND = 'Get-ChildItem -Recurse -Force | Select-Object -ExpandProperty FullName'
+}
+
+# ----------------------
+# Ctrl+R → Fuzzy history
+# ----------------------
 function Invoke-FuzzyHistory {
     $history = [Microsoft.PowerShell.PSConsoleReadLine]::GetHistoryItems() |
         Sort-Object Id -Descending |
@@ -107,22 +120,52 @@ function Invoke-FuzzyHistory {
         Select-Object -Unique
 
     $cmd = $history |
-        fzf --prompt 'History> ' --ansi
+        fzf --prompt 'History > ' --ansi
 
-    if ($cmd) { [Microsoft.PowerShell.PSConsoleReadLine]::Insert($cmd) }
+    if ($cmd) {
+        [Microsoft.PowerShell.PSConsoleReadLine]::Insert($cmd)
+    }
 }
 Set-PSReadLineKeyHandler -Key Ctrl+r -ScriptBlock { Invoke-FuzzyHistory }
 
-function fzf-file {
+# ----------------------
+# Ctrl+T → Fuzzy files & dirs
+# ----------------------
+function Invoke-FuzzyPath {
     try {
-        $result = fd . | fzf --preview 'bat --style=numbers --color=always --line-range :500 {}' --height=40% --border --prompt 'Files > '
+        # Build preview command safely
+        if (Get-Command bat -ErrorAction SilentlyContinue) {
+            $preview = @'
+if (Test-Path {} -PathType Container) {
+    Get-ChildItem {} | Select-Object -First 50
+} else {
+    bat --style=numbers --color=always --line-range :500 {} 2>$null
+}
+'@
+        } else {
+            $preview = @'
+if (Test-Path {} -PathType Container) {
+    Get-ChildItem {} | Select-Object -First 50
+} else {
+    Get-Content {} -TotalCount 200 2>$null
+}
+'@
+        }
+
+        $result = & $env:FZF_DEFAULT_COMMAND |
+            fzf --prompt 'Path > ' `
+                --preview $preview `
+                --preview-window 'right:60%:wrap'
+
         if ($result) {
             $path = (Resolve-Path $result).Path
-            [Microsoft.PowerShell.PSConsoleReadLine]::Insert((Convert-Path $path))
+            [Microsoft.PowerShell.PSConsoleReadLine]::Insert($path)
         }
-    } catch {}
+    } catch {
+        # Fail silently (fzf closed or error)
+    }
 }
-Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock { fzf-file }
+Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock { Invoke-FuzzyPath }
 
 # ----------------------------------------
 # Lazy-loading modules (performance-friendly)
