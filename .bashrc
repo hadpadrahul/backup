@@ -162,28 +162,32 @@ fi
 ########################
 
 # Load official fzf bash integration
-# This sets up default keybindings:
+# Sets up default keybindings:
 #   Ctrl+T → file search
 #   Ctrl+R → command history
 #   Alt+C  → directory jump
 eval "$(fzf --bash)"
 
-# Use fd as the default source for fzf
-# - Includes hidden files
-# - Excludes .git
-# - Faster and smarter than 'find'
-export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --exclude .git'
+# ----------------------
+# fd integration (safe)
+# ----------------------
+# Use fd if available, otherwise fall back to fzf defaults
+if command -v fd >/dev/null 2>&1; then
+    export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --exclude .git'
+    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+fi
 
-# Ensure Ctrl+T uses the same fd-based command
-export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
-
-# Global fzf options
-# - 40% height popup
-# - Reverse layout (prompt at bottom)
-# - Border enabled
-# - bat preview with syntax highlighting and line numbers
-export FZF_DEFAULT_OPTS="--height 40% --reverse --border \
-  --preview 'bat --style=numbers --color=always --line-range :500 {}'"
+# ----------------------
+# bat preview (safe)
+# ----------------------
+# Enable bat-based previews only if bat exists
+if command -v bat >/dev/null 2>&1; then
+    export FZF_DEFAULT_OPTS="--height 40% --reverse --border \
+      --preview 'bat --style=numbers --color=always --line-range :500 {}'"
+else
+    # Fallback: no preview, but keep layout consistent
+    export FZF_DEFAULT_OPTS="--height 40% --reverse --border"
+fi
 
 ########################
 # ZOXIDE CONFIG       #
