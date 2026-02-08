@@ -183,7 +183,8 @@ fi
 # Enable bat-based previews only if bat exists
 if command -v bat >/dev/null 2>&1; then
     export FZF_DEFAULT_OPTS="--height 40% --reverse --border \
-      --preview 'bat --style=numbers --color=always --line-range :500 {}'"
+      --preview 'bat --style=numbers --color=always --line-range :500 {} 2>/dev/null || sed -n \"1,200p\" {}' \
+      --preview-window=right:60%:wrap"
 else
     # Fallback: no preview, but keep layout consistent
     export FZF_DEFAULT_OPTS="--height 40% --reverse --border"
