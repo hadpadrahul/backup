@@ -16,15 +16,13 @@
 
 if (Get-Command starship -ErrorAction SilentlyContinue) {
     $env:STARSHIP_CONFIG = "$HOME\.config\starship.toml"
-
-    # Transient prompt function
+    
     function Invoke-Starship-TransientFunction {
         & starship module character
     }
 
-    # Enable transient prompt
+    # Initialize Starship (defines the functions)
     Invoke-Expression (& starship init powershell)
-    Enable-TransientPrompt
 }
 
 # ----------------------------------------
@@ -34,7 +32,6 @@ if (Get-Command starship -ErrorAction SilentlyContinue) {
 if (-not (Get-Module PSReadLine)) {
     Import-Module PSReadLine
 }
-
 
 # PSReadLine options
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
@@ -219,6 +216,11 @@ if (Get-Command eza -ErrorAction SilentlyContinue) {
         param([int]$Depth = 2)
         eza @EZA_BASE @EZA_LONG '--tree' "--level=$Depth" @args
     }
+}
+
+# Enable it last to override any conflicting PSReadLine handlers
+if (Get-Command Enable-TransientPrompt -ErrorAction SilentlyContinue) {
+    Enable-TransientPrompt
 }
 
 # ----------------------------------------

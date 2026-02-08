@@ -9,8 +9,7 @@ command_timeout = 1000
 format = """[$os$username](#fab09e)$directory$fill$all$character""" #$python$golang$git_branch
 
 [character]
-success_symbol = "[➜](bold green)"  #cd5e42
-
+success_symbol = "[](bold green)"  #cd5e42
 
 [os]
 disabled = false
