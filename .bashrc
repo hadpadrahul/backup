@@ -166,7 +166,9 @@ fi
 #   Ctrl+T → file search
 #   Ctrl+R → command history
 #   Alt+C  → directory jump
-eval "$(fzf --bash)"
+if command -v fzf >/dev/null 2>&1; then
+    eval "$(fzf --bash)"
+fi
 
 # ----------------------
 # fd integration (safe)
@@ -285,6 +287,9 @@ fi
 # Fail on unmatched globs (power-user safety)
 shopt -s failglob
 
+# Immediate notification when background jobs finish
+# set -o notify
+
 # Preferred editor
 export EDITOR=nvim
 export VISUAL=nvim
@@ -301,4 +306,7 @@ umask 022
 # fi
 
 # Uncomment to enable recursive globbing (**)
-shopt -s globstar
+# shopt -s globstar
+
+# Deduplicate PATH entries while preserving order
+# export PATH="$(printf "%s" "$PATH" | awk -v RS=: '!a[$1]++{printf "%s%s",$1,RT}')"
