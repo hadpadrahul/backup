@@ -190,6 +190,17 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
 
 Set-Alias notepad 'C:\Windows\System32\notepad.exe'
 
+# Create directory and enter it
+function mkcd {
+    param(
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$Path
+    )
+
+    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    Set-Location $Path
+}
+
 # ----------------------------------------
 # zoxide (smart directory jumping)
 # ----------------------------------------

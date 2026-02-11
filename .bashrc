@@ -11,16 +11,47 @@ case $- in
       *) return ;;
 esac
 
+########################
+# SHELL MODE DETECTION #
+########################
+# Detect if running over SSH
+if [ -n "$SSH_CONNECTION" ]; then
+    export IS_SSH=1
+fi
+
+# Detect if inside tmux
+if [ -n "$TMUX" ]; then
+    export IS_TMUX=1
+fi
+
+########################
+# CORE SHELL BEHAVIOR #
+########################
+# Append history instead of overwriting
+shopt -s histappend
+
+# Automatically update LINES and COLUMNS
+shopt -s checkwinsize
+
+# Nothing on unmatched globs
+shopt -s nullglob
+
+# Safer pipelines
+# set -o pipefail
+
+# Secure default permissions
+umask 022
+
 ############################
 # HISTORY CONFIG          #
 ############################
 
-# Append history instead of overwriting
-shopt -s histappend
-
 # Large history (safe for servers, tmux, SSH)
 HISTSIZE=100000
 HISTFILESIZE=200000
+
+# Store timestamps in history
+HISTTIMEFORMAT="%F %T "
 
 # Ignore duplicates and trivial commands
 # (merged behavior: ignoreboth + erasedups)
@@ -38,12 +69,6 @@ __history_sync() {
 PROMPT_COMMAND="__history_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
 ########################
-# WINDOW SIZE HANDLING #
-########################
-# Automatically update LINES and COLUMNS
-shopt -s checkwinsize
-
-########################
 # LESS (PAGER) CONFIG #
 ########################
 # -R : allow raw ANSI colors
@@ -56,6 +81,13 @@ export LESS="-RFX"
 ########################
 # Enable smart previews (archives, PDFs, etc.)
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+########################
+# ENVIRONMENT VARS    #
+########################
+# Preferred editor
+export EDITOR=nvim
+export VISUAL=nvim
 
 ########################
 # DEBIAN CHROOT INFO  #
@@ -118,6 +150,119 @@ if command -v dircolors >/dev/null 2>&1; then
 fi
 
 ########################
+# USER ALIASES        #
+########################
+[ -f ~/.bash_aliases ] && . ~/.bash_aliases
+
+########################
+# TOOL ALIASES (EZA)  #
+########################
+# bat → batcat compatibility (Ubuntu/Debian)
+if command -v batcat >/dev/null 2>&1; then
+    alias bat='batcat'
+fi
+
+# Prefer eza if available, otherwise fall back to classic ls aliases
+if command -v eza >/dev/null 2>&1; then
+    if [[ "$TERM" != "linux" ]]; then
+        EZA_BASE="--icons=always --color=always --group-directories-first"
+    else
+        EZA_BASE="--color=always --group-directories-first"
+    fi
+
+    EZA_LONG="--long --header --sort=name --total-size \
+              --smart-group --time=modified \
+              --time-style=long-iso --git"
+
+    alias ls="eza $EZA_BASE"
+    alias l="eza $EZA_BASE $EZA_LONG"
+    alias la="eza $EZA_BASE $EZA_LONG --all"
+    alias ll="eza $EZA_BASE $EZA_LONG --sort=modified --reverse"
+
+    # Enhanced tree view
+    # Fully compatible with eza flags
+    tree() {
+        local depth=2
+        local level_set=0
+        local args=()
+
+        # Positional numeric depth support (tree 3)
+        if [[ "$1" =~ ^[0-9]+$ ]]; then
+            depth="$1"
+            shift
+            level_set=1
+        fi
+
+        # Check if user provided their own level flag
+        for arg in "$@"; do
+            case "$arg" in
+                -L|--level|--level=*)
+                    level_set=1
+                    break
+                    ;;
+            esac
+        done
+
+        if [ "$level_set" -eq 1 ]; then
+            eza $EZA_BASE --tree --all --ignore-glob=".git" "$@"
+        else
+            eza $EZA_BASE --tree --level="$depth" --all --ignore-glob=".git" "$@"
+        fi
+    }
+
+    # Enhanced long tree view
+    # Fully compatible with eza flags
+    lt() {
+        local depth=2
+        local level_set=0
+
+        if [[ "$1" =~ ^[0-9]+$ ]]; then
+            depth="$1"
+            shift
+            level_set=1
+        fi
+
+        for arg in "$@"; do
+            case "$arg" in
+                -L|--level|--level=*)
+                    level_set=1
+                    break
+                    ;;
+            esac
+        done
+
+        if [ "$level_set" -eq 1 ]; then
+            eza $EZA_BASE $EZA_LONG --tree --all --ignore-glob=".git" "$@"
+        else
+            eza $EZA_BASE $EZA_LONG --tree --level="$depth" --all --ignore-glob=".git" "$@"
+        fi
+    }
+
+else
+    alias ls='ls --color=auto'
+    alias ll='ls -alF'
+    alias la='ls -A'
+    alias l='ls -CF'
+fi
+
+########################
+# HELPER FUNCTIONS     #
+########################
+# Create directory and enter it safely
+mkcd() {
+    [ -n "$1" ] || { echo "Usage: mkcd <directory>"; return 1; }
+    mkdir -p -- "$1" && cd -- "$1"
+}
+
+
+########################
+# SAFER FILE OPS      #
+########################
+alias rm='rm -Iv'
+alias cp='cp -i'
+alias mv='mv -i'
+
+########################
 # RAW FZF CONFIG       #
 ########################
 # Load distro-provided fzf keybindings & completion
@@ -158,38 +303,20 @@ fi
 # fi
 
 ########################
-# FZF CONFIG (NEW)    #
+# FZF CONFIG (UPDATED)#
 ########################
-
-# Load official fzf bash integration
-# Sets up default keybindings:
-#   Ctrl+T → file search
-#   Ctrl+R → command history
-#   Alt+C  → directory jump
 if command -v fzf >/dev/null 2>&1; then
     eval "$(fzf --bash)"
-fi
 
-# ----------------------
-# fd integration (safe)
-# ----------------------
-# Use fd if available, otherwise fall back to fzf defaults
-if command -v fd >/dev/null 2>&1; then
-    export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --exclude .git'
-    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
-fi
+    export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
 
-# ----------------------
-# bat preview (safe)
-# ----------------------
-# Enable bat-based previews only if bat exists
-if command -v bat >/dev/null 2>&1; then
-    export FZF_DEFAULT_OPTS="--height 40% --reverse --border \
-      --preview 'bat --style=numbers --color=always --line-range :500 {} 2>/dev/null || sed -n \"1,200p\" {}' \
-      --preview-window=right:60%:wrap"
-else
-    # Fallback: no preview, but keep layout consistent
-    export FZF_DEFAULT_OPTS="--height 40% --reverse --border"
+    export FZF_CTRL_R_OPTS="--preview 'echo {}' --preview-window=up:3:wrap"
+
+    if command -v fd >/dev/null 2>&1; then
+        export FZF_CTRL_T_COMMAND='fd --hidden --strip-cwd-prefix --exclude .git'
+
+        export FZF_CTRL_T_OPTS="--preview 'if [ -d {} ]; then eza --color=always {} 2>/dev/null || ls -F {}; else bat --color=always --line-range :200 {} 2>/dev/null || head -n 100 {}; fi'"
+    fi
 fi
 
 ########################
@@ -205,72 +332,6 @@ if command -v zoxide >/dev/null 2>&1; then
 fi
 
 ########################
-# USER ALIASES        #
-########################
-[ -f ~/.bash_aliases ] && . ~/.bash_aliases
-
-########################
-# TOOL ALIASES (EZA)  #
-########################
-# bat → batcat compatibility (Ubuntu/Debian)
-if command -v batcat >/dev/null 2>&1; then
-    alias bat='batcat'
-fi
-
-# Prefer eza if available, otherwise fall back to classic ls aliases
-if command -v eza >/dev/null 2>&1; then
-    if [[ "$TERM" != "linux" ]]; then
-        EZA_BASE="--icons=always --color=always --group-directories-first"
-    else
-        EZA_BASE="--color=always --group-directories-first"
-    fi
-
-    EZA_LONG="--long --header --sort=name --total-size \
-              --smart-group --time=modified \
-              --time-style=long-iso --git"
-
-    alias ls="eza $EZA_BASE"
-    alias l="eza $EZA_BASE $EZA_LONG"
-    alias la="eza $EZA_BASE $EZA_LONG --all"
-    alias ll="eza $EZA_BASE $EZA_LONG --sort=modified --reverse"
-
-    tree() {
-        local depth=2 args=()
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                -L|--level) depth="$2"; shift 2 ;;
-                *) args+=("$1"); shift ;;
-            esac
-        done
-        eza $EZA_BASE --tree --level="$depth" "${args[@]}"
-    }
-
-    lt() {
-        local depth=2 args=()
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                -L|--level) depth="$2"; shift 2 ;;
-                *) args+=("$1"); shift ;;
-            esac
-        done
-        eza $EZA_BASE $EZA_LONG --tree --level="$depth" "${args[@]}"
-    }
-else
-    # Classic ls aliases (from bashrc #2)
-    alias ls='ls --color=auto'
-    alias ll='ls -alF'
-    alias la='ls -A'
-    alias l='ls -CF'
-fi
-
-########################
-# SAFER FILE OPS     #
-########################
-alias rm='rm -i'
-alias cp='cp -i'
-alias mv='mv -i'
-
-########################
 # BASH COMPLETION     #
 ########################
 if ! shopt -oq posix; then
@@ -282,31 +343,33 @@ if ! shopt -oq posix; then
 fi
 
 ########################
-# SHELL SAFETY & UX   #
+# PATH DEDUPLICATION  #
 ########################
-# Fail on unmatched globs (power-user safety)
-shopt -s failglob
+# Deduplicate PATH entries while preserving order
+if [ -n "$PATH" ]; then
+    PATH=$(awk -v RS=: -v ORS=: '!x[$0]++' <<< "$PATH" | sed 's/:$//')
+    export PATH
+fi
 
-# Immediate notification when background jobs finish
-# set -o notify
+########################
+# LOCAL MACHINE OVERRIDES
+########################
+# Optional per-machine config (not tracked in dotfiles)
+[ -f ~/.bashrc_local ] && . ~/.bashrc_local
 
-# Preferred editor
-export EDITOR=nvim
-export VISUAL=nvim
-
-# Secure default permissions
-umask 022
+########################
+# HISTORY SAFETY TRAP #
+########################
+# Ensure history is written even on shell exit or kill
+trap 'history -a' EXIT
 
 ########################
 # OPTIONAL EXTRAS     #
 ########################
 # Uncomment if you want startup system info
-# if command -v fastfetch >/dev/null 2>&1; then
-#     fastfetch --config ~/.config/fastfetch/config.jsonc
-# fi
+if command -v fastfetch >/dev/null 2>&1; then
+    fastfetch --config ~/.config/fastfetch/config.jsonc
+fi
 
 # Uncomment to enable recursive globbing (**)
 # shopt -s globstar
-
-# Deduplicate PATH entries while preserving order
-# export PATH="$(printf "%s" "$PATH" | awk -v RS=: '!a[$1]++{printf "%s%s",$1,RT}')"
