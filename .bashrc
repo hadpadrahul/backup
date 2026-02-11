@@ -232,9 +232,9 @@ if command -v eza >/dev/null 2>&1; then
         done
 
         if [ "$level_set" -eq 1 ]; then
-            eza $EZA_BASE $EZA_LONG --tree --all --ignore-glob=".git" "$@"
+            eza $EZA_BASE $EZA_LONG --tree --ignore-glob=".git" "$@"
         else
-            eza $EZA_BASE $EZA_LONG --tree --level="$depth" --all --ignore-glob=".git" "$@"
+            eza $EZA_BASE $EZA_LONG --tree --level="$depth" --ignore-glob=".git" "$@"
         fi
     }
 
