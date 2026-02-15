@@ -42,6 +42,9 @@ Set-PSReadLineOption -HistorySearchCursorMovesToEnd
 
 Set-PSReadLineOption -ShowToolTips
 Set-PSReadLineOption -EditMode Windows
+# Set-PSReadLineOption -EditMode Vi
+# Set-PSReadLineKeyHandler -Chord 'j','k' -Function ViCommandMode
+# Set-PSReadLineOption -ViModeIndicator Cursor
 
 Set-PSReadLineOption -MaximumHistoryCount 10000
 Set-PSReadLineOption -CompletionQueryItems 200
@@ -131,41 +134,37 @@ Set-PSReadLineKeyHandler -Key Ctrl+r -ScriptBlock { Invoke-FuzzyHistory }
 # ----------------------
 # Ctrl+T → Fuzzy files & dirs
 # ----------------------
-function Invoke-FuzzyPath {
+function fzf-file {
     try {
-        # Build preview command safely
-        if (Get-Command bat -ErrorAction SilentlyContinue) {
-            $preview = @'
-if (Test-Path {} -PathType Container) {
-    Get-ChildItem {} | Select-Object -First 50
-} else {
-    bat --style=numbers --color=always --line-range :500 {} 2>$null
-}
-'@
+        # Determine file list source
+        if (Get-Command fd -ErrorAction SilentlyContinue) {
+            $listSource = { fd . }
         } else {
-            $preview = @'
-if (Test-Path {} -PathType Container) {
-    Get-ChildItem {} | Select-Object -First 50
-} else {
-    Get-Content {} -TotalCount 200 2>$null
-}
-'@
+            # PowerShell fallback: recurse directories
+            $listSource = { Get-ChildItem -Recurse -File -Force -ErrorAction SilentlyContinue |
+                            ForEach-Object { $_.FullName } }
         }
-
-        $result = & $env:FZF_DEFAULT_COMMAND |
-            fzf --prompt 'Path > ' `
-                --preview $preview `
-                --preview-window 'right:60%:wrap'
-
+        # Determine preview command
+        if (Get-Command bat -ErrorAction SilentlyContinue) {
+            # bat is available
+            $preview = 'bat --style=numbers --color=always --line-range :500 {} 2>$null'
+        } else {
+            # Fallback to Get-Content if bat isn't installed
+            $preview = 'Get-Content {} -TotalCount 200 2>$null'
+        }
+        # Run fzf with ANSI so bat will show colors
+        $result = & $listSource |
+            fzf --ansi `
+                --height=40% --border --prompt 'Files > ' `
+                --preview $preview
         if ($result) {
+            # Resolve and insert path
             $path = (Resolve-Path $result).Path
-            [Microsoft.PowerShell.PSConsoleReadLine]::Insert($path)
+            [Microsoft.PowerShell.PSConsoleReadLine]::Insert((Convert-Path $path))
         }
-    } catch {
-        # Fail silently (fzf closed or error)
     }
 }
-Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock { Invoke-FuzzyPath }
+Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock { fzf-file }
 
 # ----------------------------------------
 # Lazy-loading modules (performance-friendly)
@@ -259,15 +258,15 @@ if (Get-Command eza -ErrorAction SilentlyContinue) {
         eza @EZA_BASE @EZA_LONG '--sort=modified' '--reverse' @args
     }
 
-    # Tree view (default depth = 2)
+    # Tree view (default depth = 1)
     function tree {
-        param([int]$Depth = 2)
+        param([int]$Depth = 1)
         eza @EZA_BASE '--tree' "--level=$Depth" @args
     }
 
-    # Tree + metadata (long + tree, depth = 2)
+    # Tree + metadata (long + tree, depth = 1)
     function lt {
-        param([int]$Depth = 2)
+        param([int]$Depth = 1)
         eza @EZA_BASE @EZA_LONG '--tree' "--level=$Depth" @args
     }
 }

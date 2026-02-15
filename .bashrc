@@ -182,11 +182,11 @@ if command -v eza >/dev/null 2>&1; then
     # Enhanced tree view
     # Fully compatible with eza flags
     tree() {
-        local depth=2
+        local depth=1
         local level_set=0
         local args=()
 
-        # Positional numeric depth support (tree 3)
+        # Positional numeric depth support (eg tree 3)
         if [[ "$1" =~ ^[0-9]+$ ]]; then
             depth="$1"
             shift
@@ -213,7 +213,7 @@ if command -v eza >/dev/null 2>&1; then
     # Enhanced long tree view
     # Fully compatible with eza flags
     lt() {
-        local depth=2
+        local depth=1
         local level_set=0
 
         if [[ "$1" =~ ^[0-9]+$ ]]; then
