@@ -40,8 +40,14 @@ Set-PSReadLineOption -HistorySaveStyle SaveIncrementally
 Set-PSReadLineOption -HistoryNoDuplicates
 Set-PSReadLineOption -HistorySearchCursorMovesToEnd
 
-Set-PSReadLineOption -ShowToolTips
-Set-PSReadLineOption -EditMode Windows
+# ${UserConfigDir}/powershell/Microsoft.PowerShell_profile.ps1
+$env:CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense' # optional
+Set-PSReadLineOption -Colors @{ "Selection" = "`e[7m" }
+Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+carapace _carapace | Out-String | Invoke-Expression
+
+# Set-PSReadLineOption -EditMode Windows
+# Set-PSReadLineOption -ShowToolTips (Carapace doesnt work if this is enabled)
 # Set-PSReadLineOption -EditMode Vi
 # Set-PSReadLineKeyHandler -Chord 'j','k' -Function ViCommandMode
 # Set-PSReadLineOption -ViModeIndicator Cursor
@@ -81,7 +87,6 @@ Set-PSReadLineOption -AddToHistoryHandler {
 # Keybindings
 Set-PSReadLineKeyHandler -Key UpArrow         -Function HistorySearchBackward
 Set-PSReadLineKeyHandler -Key DownArrow       -Function HistorySearchForward
-Set-PSReadLineKeyHandler -Key Tab             -Function MenuComplete
 Set-PSReadLineKeyHandler -Key RightArrow      -Function AcceptSuggestion
 
 Set-PSReadLineKeyHandler -Key Ctrl+a          -Function SelectAll
@@ -135,33 +140,31 @@ Set-PSReadLineKeyHandler -Key Ctrl+r -ScriptBlock { Invoke-FuzzyHistory }
 # Ctrl+T → Fuzzy files & dirs
 # ----------------------
 function fzf-file {
-    try {
-        # Determine file list source
-        if (Get-Command fd -ErrorAction SilentlyContinue) {
-            $listSource = { fd . }
-        } else {
-            # PowerShell fallback: recurse directories
-            $listSource = { Get-ChildItem -Recurse -File -Force -ErrorAction SilentlyContinue |
-                            ForEach-Object { $_.FullName } }
-        }
-        # Determine preview command
-        if (Get-Command bat -ErrorAction SilentlyContinue) {
-            # bat is available
-            $preview = 'bat --style=numbers --color=always --line-range :500 {} 2>$null'
-        } else {
-            # Fallback to Get-Content if bat isn't installed
-            $preview = 'Get-Content {} -TotalCount 200 2>$null'
-        }
-        # Run fzf with ANSI so bat will show colors
-        $result = & $listSource |
-            fzf --ansi `
-                --height=40% --border --prompt 'Files > ' `
-                --preview $preview
-        if ($result) {
-            # Resolve and insert path
-            $path = (Resolve-Path $result).Path
-            [Microsoft.PowerShell.PSConsoleReadLine]::Insert((Convert-Path $path))
-        }
+    # Determine file list source
+    if (Get-Command fd -ErrorAction SilentlyContinue) {
+        $listSource = { fd . }
+    } else {
+        # PowerShell fallback: recurse directories
+        $listSource = { Get-ChildItem -Recurse -File -Force -ErrorAction SilentlyContinue |
+                        ForEach-Object { $_.FullName } }
+    }
+    # Determine preview command
+    if (Get-Command bat -ErrorAction SilentlyContinue) {
+        # bat is available
+        $preview = 'bat --style=numbers --color=always --line-range :500 {} 2>$null'
+    } else {
+        # Fallback to Get-Content if bat isn't installed
+        $preview = 'Get-Content {} -TotalCount 200 2>$null'
+    }
+    # Run fzf with ANSI so bat will show colors
+    $result = & $listSource |
+        fzf --ansi `
+            --height=40% --border --prompt 'Files > ' `
+            --preview $preview
+    if ($result) {
+        # Resolve and insert path
+        $path = (Resolve-Path $result).Path
+        [Microsoft.PowerShell.PSConsoleReadLine]::Insert((Convert-Path $path))
     }
 }
 Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock { fzf-file }
@@ -181,11 +184,11 @@ $null = Register-EngineEvent -SourceIdentifier 'PowerShell.OnIdle' -MaxTriggerCo
 # ----------------------------------------
 
 # cat alias for bat if available
-if (Get-Command bat -ErrorAction SilentlyContinue) {
-    Set-Alias cat bat
-} else {
-    Set-Alias cat Get-Content
-}
+# if (Get-Command bat -ErrorAction SilentlyContinue) {
+#     Set-Alias cat bat
+# } else {
+#     Set-Alias cat Get-Content
+# }
 
 Set-Alias notepad 'C:\Windows\System32\notepad.exe'
 
