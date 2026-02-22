@@ -37,7 +37,7 @@ shopt -s checkwinsize
 shopt -s nullglob
 
 # Safer pipelines
-# set -o pipefail
+set -o pipefail
 
 # Secure default permissions
 umask 022
@@ -47,6 +47,7 @@ umask 022
 ############################
 
 # Large history (safe for servers, tmux, SSH)
+HISTFILE=~/.bash_history
 HISTSIZE=100000
 HISTFILESIZE=200000
 
@@ -56,17 +57,21 @@ HISTTIMEFORMAT="%F %T "
 # Ignore duplicates and trivial commands
 # (merged behavior: ignoreboth + erasedups)
 HISTCONTROL=ignoreboth:erasedups
-HISTIGNORE="ls:ll:l:cd:cd -:pwd:exit:clear:history"
+HISTIGNORE="ls:ll:l:la:cd:cd -:pwd:exit:clear:cleawr:history:&:[ ]*"
 
 # Sync history across multiple sessions
 __history_sync() {
     history -a    # append new history lines
-    history -c    # clear current session history
-    history -r    # reload full history
+    history -n    # Reads new lines from history
+}
+
+# Exit status capture
+__set_exit_status() {
+    EXIT_CODE="$?"
 }
 
 # Preserve any existing PROMPT_COMMAND
-PROMPT_COMMAND="__history_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+PROMPT_COMMAND="__set_exit_status; __history_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
 ########################
 # LESS (PAGER) CONFIG #
@@ -116,15 +121,22 @@ if [ -n "${force_color_prompt:-}" ]; then
     fi
 fi
 
+__exit_segment() {
+    if [[ $EXIT_CODE -ne 0 ]]; then
+        printf " \[\033[31m\]✗ %s\[\033[00m\]" "$EXIT_CODE"
+    fi
+}
+
 # Main prompt
 if [ "$color_prompt" = yes ]; then
     PS1='${debian_chroot:+($debian_chroot)}\
 \[\033[01;32m\]\u@\h\
 \[\033[00m\]:\
 \[\033[01;34m\]\w\
-\[\033[00m\]\$ '
+\[\033[00m\]$(__exit_segment)\
+\$ '
 else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w$(if [ "$EXIT_CODE" -ne 0 ] 2>/dev/null; then echo " ✗ $EXIT_CODE"; fi)\$ '
 fi
 unset color_prompt force_color_prompt
 
@@ -306,7 +318,11 @@ alias mv='mv -i'
 # FZF CONFIG (UPDATED)#
 ########################
 if command -v fzf >/dev/null 2>&1; then
-    eval "$(fzf --bash)"
+    # eval "$(fzf --bash)"
+    if [ -f /usr/share/fzf/shell/key-bindings.bash ]; then
+    source /usr/share/fzf/shell/key-bindings.bash
+    source /usr/share/fzf/shell/completion.bash
+    fi
 
     export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
 
@@ -346,10 +362,17 @@ fi
 # PATH DEDUPLICATION  #
 ########################
 # Deduplicate PATH entries while preserving order
-if [ -n "$PATH" ]; then
-    PATH=$(awk -v RS=: -v ORS=: '!x[$0]++' <<< "$PATH" | sed 's/:$//')
-    export PATH
-fi
+path_dedupe() {
+    local IFS=:
+    local new_path=""
+    for dir in $PATH; do
+        [[ ":$new_path:" != *":$dir:"* ]] && new_path="${new_path:+$new_path:}$dir"
+    done
+    PATH="$new_path"
+}
+
+[ -n "$PATH" ] && path_dedupe
+export PATH
 
 ########################
 # LOCAL MACHINE OVERRIDES

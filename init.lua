@@ -56,6 +56,10 @@ vim.opt.expandtab = true
 vim.opt.autoindent = true
 vim.opt.smartindent = true
 
+-- Folding (indent-based, no plugins)
+vim.opt.foldmethod = "indent"
+vim.opt.foldlevel = 99   -- Start with all folds open 
+
 -----------------------------------------------------
 -- Search behavior
 -----------------------------------------------------
@@ -72,9 +76,6 @@ vim.opt.hlsearch = true
 -----------------------------------------------------
 -- Editing behavior
 -----------------------------------------------------
--- Allow buffer switching without saving
-vim.opt.hidden = true
-
 -- Ask before destructive actions
 vim.opt.confirm = true
 
@@ -118,7 +119,9 @@ end)
 -- Clipboard (local + SSH safe)
 -----------------------------------------------------
 -- Use system clipboard when available
-vim.opt.clipboard = "unnamedplus"
+if vim.fn.has("clipboard") == 1 then
+  vim.opt.clipboard = "unnamedplus"
+end
 
 -----------------------------------------------------
 -- Split behavior
@@ -126,6 +129,10 @@ vim.opt.clipboard = "unnamedplus"
 -- Natural split directions
 vim.opt.splitright = true
 vim.opt.splitbelow = true
+
+-- Better diff defaults
+vim.opt.diffopt:append("vertical")
+vim.opt.diffopt:append("linematch:60")
 
 -----------------------------------------------------
 -- Command-line completion
@@ -204,7 +211,7 @@ end)
 -----------------------------------------------------
 -- Commenting (NO plugins)
 -----------------------------------------------------
--- Toggle comment on current line
+-- Toggle comment on current line (preserves indentation)
 map("n", "<leader>/", function()
   local cs = vim.bo.commentstring
   if cs == "" then return end
@@ -212,26 +219,43 @@ map("n", "<leader>/", function()
   local comment = cs:gsub("%%s", "")
   local line = vim.api.nvim_get_current_line()
 
-  if line:match("^%s*" .. vim.pesc(comment)) then
-    line = line:gsub("^%s*" .. vim.pesc(comment) .. "%s?", "", 1)
+  -- Preserve indentation
+  local indent = line:match("^%s*") or ""
+  local content = line:sub(#indent + 1)
+
+  if content:match("^" .. vim.pesc(comment)) then
+    content = content:gsub("^" .. vim.pesc(comment) .. "%s?", "", 1)
   else
-    line = comment .. " " .. line
+    content = comment .. " " .. content
   end
 
-  vim.api.nvim_set_current_line(line)
+  vim.api.nvim_set_current_line(indent .. content)
 end)
 
--- Comment visual selection
+-- Toggle comment on visual selection (preserves indentation)
 map("v", "<leader>/", function()
   local cs = vim.bo.commentstring
   if cs == "" then return end
 
   local comment = cs:gsub("%%s", "")
-  local start = vim.fn.line("'<")
-  local finish = vim.fn.line("'>")
+  local start_line = vim.fn.line("'<")
+  local end_line = vim.fn.line("'>")
 
-  for i = start, finish do
-    vim.fn.setline(i, comment .. " " .. vim.fn.getline(i))
+  for i = start_line, end_line do
+    local line = vim.fn.getline(i)
+
+    local indent = line:match("^%s*") or ""
+    local content = line:sub(#indent + 1)
+
+    if content:match("^" .. vim.pesc(comment)) then
+      -- Uncomment
+      content = content:gsub("^" .. vim.pesc(comment) .. "%s?", "", 1)
+    else
+      -- Comment
+      content = comment .. " " .. content
+    end
+
+    vim.fn.setline(i, indent .. content)
   end
 end)
 
@@ -264,6 +288,20 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 vim.api.nvim_create_autocmd("VimResized", {
   callback = function()
     vim.cmd("wincmd =")
+  end,
+})
+
+-- Disable heavy features for large files
+vim.api.nvim_create_autocmd("BufReadPre", {
+  callback = function()
+    local max_filesize = 1024 * 1024 -- 1MB
+    local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(0))
+
+    if ok and stats and stats.size > max_filesize then
+      vim.opt_local.syntax = "off"
+      vim.opt_local.swapfile = false
+      vim.opt_local.undofile = false
+    end
   end,
 })
 

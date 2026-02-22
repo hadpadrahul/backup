@@ -22,7 +22,7 @@ if (Get-Command starship -ErrorAction SilentlyContinue) {
     }
 
     # Initialize Starship (defines the functions)
-    Invoke-Expression (& starship init powershell)
+    starship init powershell | Out-String | Invoke-Expression
 }
 
 # ----------------------------------------
@@ -39,12 +39,6 @@ Set-PSReadLineOption -PredictionViewStyle InlineView
 Set-PSReadLineOption -HistorySaveStyle SaveIncrementally
 Set-PSReadLineOption -HistoryNoDuplicates
 Set-PSReadLineOption -HistorySearchCursorMovesToEnd
-
-# ${UserConfigDir}/powershell/Microsoft.PowerShell_profile.ps1
-$env:CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense' # optional
-Set-PSReadLineOption -Colors @{ "Selection" = "`e[7m" }
-Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-carapace _carapace | Out-String | Invoke-Expression
 
 # Set-PSReadLineOption -EditMode Windows
 # Set-PSReadLineOption -ShowToolTips (Carapace doesnt work if this is enabled)
@@ -106,7 +100,7 @@ Set-PSReadLineKeyHandler -Key Alt+.           -Function YankLastArg
 # ----------------------------------------
 
 # Base fzf UI defaults (safe everywhere)
-$env:FZF_DEFAULT_OPTS = '--height=40% --reverse --border --cycle'
+$env:FZF_DEFAULT_OPTS = '--height=40% --reverse --border --cycle --multi --highlight-line --wrap=word'
 
 # ----------------------
 # fd integration (safe)
@@ -123,9 +117,8 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 # ----------------------
 function Invoke-FuzzyHistory {
     $history = [Microsoft.PowerShell.PSConsoleReadLine]::GetHistoryItems() |
-        Sort-Object Id -Descending |
         ForEach-Object CommandLine |
-        Select-Object -Unique
+        Select-Object -Unique -Last 5000
 
     $cmd = $history |
         fzf --prompt 'History > ' --ansi
@@ -154,7 +147,7 @@ function fzf-file {
         $preview = 'bat --style=numbers --color=always --line-range :500 {} 2>$null'
     } else {
         # Fallback to Get-Content if bat isn't installed
-        $preview = 'Get-Content {} -TotalCount 200 2>$null'
+        $preview = 'powershell -NoProfile -Command "Get-Content -Path ''{}'' -TotalCount 200 2>$null"'
     }
     # Run fzf with ANSI so bat will show colors
     $result = & $listSource |
@@ -170,13 +163,20 @@ function fzf-file {
 Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock { fzf-file }
 
 # ----------------------------------------
-# Lazy-loading modules (performance-friendly)
+# Lazy-loading modules on idle
 # ----------------------------------------
 
+# Carapace 
+# Static config (runs immediately, order preserved)
+$env:CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'  # optional
+Set-PSReadLineOption -Colors @{ "Selection" = "`e[7m" }
+Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+
+# Lazy-load Carapace after PowerShell becomes idle
 $null = Register-EngineEvent -SourceIdentifier 'PowerShell.OnIdle' -MaxTriggerCount 1 -Action {
-    $env:POSH_GIT_ENABLED = $false
-    Import-Module posh-git -ErrorAction SilentlyContinue
-    Import-Module Microsoft.WinGet.CommandNotFound -ErrorAction SilentlyContinue
+    if (Get-Command carapace -ErrorAction SilentlyContinue) {
+        carapace _carapace | Out-String | Invoke-Expression
+    }
 }
 
 # ----------------------------------------
@@ -190,6 +190,7 @@ $null = Register-EngineEvent -SourceIdentifier 'PowerShell.OnIdle' -MaxTriggerCo
 #     Set-Alias cat Get-Content
 # }
 
+Set-Alias which Get-Command
 Set-Alias notepad 'C:\Windows\System32\notepad.exe'
 
 # Create directory and enter it
