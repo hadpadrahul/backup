@@ -109,7 +109,7 @@ $env:FZF_DEFAULT_OPTS = '--height=40% --reverse --border --cycle --multi --highl
 if (Get-Command fd -ErrorAction SilentlyContinue) {
     $env:FZF_DEFAULT_COMMAND = 'fd --hidden --follow --exclude .git'
 } else {
-    $env:FZF_DEFAULT_COMMAND = 'Get-ChildItem -Recurse -Force | Select-Object -ExpandProperty FullName'
+    $env:FZF_DEFAULT_COMMAND = 'powershell -NoProfile -Command "Get-ChildItem -Recurse -Force | Select-Object -ExpandProperty FullName"'
 }
 
 # ----------------------
@@ -118,7 +118,7 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 function Invoke-FuzzyHistory {
     $history = [Microsoft.PowerShell.PSConsoleReadLine]::GetHistoryItems() |
         ForEach-Object CommandLine |
-        Select-Object -Unique -Last 5000
+        Select-Object -Last 5000 | Select-Object -Unique
 
     $cmd = $history |
         fzf --prompt 'History > ' --ansi
@@ -163,20 +163,41 @@ function fzf-file {
 Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock { fzf-file }
 
 # ----------------------------------------
-# Lazy-loading modules on idle
+# Carapace (command suggestions)
 # ----------------------------------------
-
-# Carapace 
 # Static config (runs immediately, order preserved)
 $env:CARAPACE_BRIDGES = 'zsh,fish,bash,inshellisense'  # optional
 Set-PSReadLineOption -Colors @{ "Selection" = "`e[7m" }
 Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 
-# Lazy-load Carapace after PowerShell becomes idle
+# ----------------------------------------
+# zoxide (smart directory jumping)
+# ----------------------------------------
+
+$env:_ZO_ECHO            = '1'
+$env:_ZO_MAXAGE          = '10000'
+$env:_ZO_RESOLVE_SYMLINKS = '1'
+
+# ----------------------------------------
+# Lazy-loading modules on idle
+# ----------------------------------------
+
 $null = Register-EngineEvent -SourceIdentifier 'PowerShell.OnIdle' -MaxTriggerCount 1 -Action {
+
+    # zoxide
+    if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+        zoxide init powershell | Out-String | Invoke-Expression
+    }
+
+    # Carapace
     if (Get-Command carapace -ErrorAction SilentlyContinue) {
         carapace _carapace | Out-String | Invoke-Expression
     }
+}
+
+# Starship Transient Prompt
+if (Get-Command Enable-TransientPrompt -ErrorAction SilentlyContinue) {
+    Enable-TransientPrompt
 }
 
 # ----------------------------------------
@@ -202,18 +223,6 @@ function mkcd {
 
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
     Set-Location $Path
-}
-
-# ----------------------------------------
-# zoxide (smart directory jumping)
-# ----------------------------------------
-
-$env:_ZO_ECHO            = '1'
-$env:_ZO_MAXAGE          = '10000'
-$env:_ZO_RESOLVE_SYMLINKS = '1'
-
-if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-    (& zoxide init powershell) -join "`n" | Invoke-Expression
 }
 
 # ----------------------------------------
@@ -273,11 +282,6 @@ if (Get-Command eza -ErrorAction SilentlyContinue) {
         param([int]$Depth = 1)
         eza @EZA_BASE @EZA_LONG '--tree' "--level=$Depth" @args
     }
-}
-
-# Enable it last to override any conflicting PSReadLine handlers
-if (Get-Command Enable-TransientPrompt -ErrorAction SilentlyContinue) {
-    Enable-TransientPrompt
 }
 
 # ----------------------------------------

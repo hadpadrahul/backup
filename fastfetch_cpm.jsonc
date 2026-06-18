@@ -27,30 +27,17 @@
   // GENERAL DISPLAY SETTINGS
   //////////////////////////
   "display": {
-    // Show full OS and host
-    "os": true,
-    "host": true,
-    "kernel": true,
-    "uptime": true,
-    "packages": true,
-
-    // Hardware info
-    "cpu": true,
-    "gpu": true,
-    "memory": true,
-
-    // Network info
-    "local_ip": true,
-    "public_ip": true,
-    "network_speed": true,
-
-    // Storage usage
-    "disk": true,
-
-    // Users & shell info
-    "users": true,
-    "shell": true
-  },
+      "os": true,
+      "host": true,
+      "kernel": true,
+      "uptime": true,
+      "packages": true,
+      "cpu": true,
+      "memory": true,
+      "disk": true,
+      "local_ip": true,
+      "shell": true
+    },
 
   //////////////////////////
   // EXTRA SECTIONS

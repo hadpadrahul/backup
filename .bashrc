@@ -2,6 +2,11 @@
 # Unified, portable Bash configuration
 # Safe for: personal machines, servers, SSH, tmux, TTY, containers
 
+# Mise shell environment manager
+if command -v mise >/dev/null 2>&1; then
+    eval "$(mise activate bash)"
+fi
+
 ############################
 # INTERACTIVE SHELL ONLY  #
 ############################
@@ -34,7 +39,10 @@ shopt -s histappend
 shopt -s checkwinsize
 
 # Nothing on unmatched globs
-shopt -s nullglob
+# shopt -s nullglob
+
+# Uncomment to enable recursive globbing (**)
+# shopt -s globstar
 
 # Safer pipelines
 set -o pipefail
@@ -65,13 +73,8 @@ __history_sync() {
     history -n    # Reads new lines from history
 }
 
-# Exit status capture
-__set_exit_status() {
-    EXIT_CODE="$?"
-}
-
 # Preserve any existing PROMPT_COMMAND
-PROMPT_COMMAND="__set_exit_status; __history_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+PROMPT_COMMAND="__history_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
 ########################
 # LESS (PAGER) CONFIG #
@@ -121,22 +124,15 @@ if [ -n "${force_color_prompt:-}" ]; then
     fi
 fi
 
-__exit_segment() {
-    if [[ $EXIT_CODE -ne 0 ]]; then
-        printf " \[\033[31m\]✗ %s\[\033[00m\]" "$EXIT_CODE"
-    fi
-}
-
 # Main prompt
 if [ "$color_prompt" = yes ]; then
     PS1='${debian_chroot:+($debian_chroot)}\
 \[\033[01;32m\]\u@\h\
 \[\033[00m\]:\
 \[\033[01;34m\]\w\
-\[\033[00m\]$(__exit_segment)\
-\$ '
+\[\033[00m\]\$ '
 else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w$(if [ "$EXIT_CODE" -ne 0 ] 2>/dev/null; then echo " ✗ $EXIT_CODE"; fi)\$ '
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
 unset color_prompt force_color_prompt
 
@@ -173,6 +169,11 @@ fi
 if command -v batcat >/dev/null 2>&1; then
     alias bat='batcat'
 fi
+
+if command -v nvim >/dev/null 2>&1; then
+    alias v='nvim'
+fi
+
 
 # Prefer eza if available, otherwise fall back to classic ls aliases
 if command -v eza >/dev/null 2>&1; then
@@ -318,11 +319,7 @@ alias mv='mv -i'
 # FZF CONFIG (UPDATED)#
 ########################
 if command -v fzf >/dev/null 2>&1; then
-    # eval "$(fzf --bash)"
-    if [ -f /usr/share/fzf/shell/key-bindings.bash ]; then
-    source /usr/share/fzf/shell/key-bindings.bash
-    source /usr/share/fzf/shell/completion.bash
-    fi
+    eval "$(fzf --bash)"
 
     export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
 
@@ -386,6 +383,10 @@ export PATH
 # Ensure history is written even on shell exit or kill
 trap 'history -a' EXIT
 
+# Fix for some SSH/TTY issues: Ensure the completion character is handled
+bind 'set completion-ignore-case on'
+bind 'set show-all-if-ambiguous on'
+
 ########################
 # OPTIONAL EXTRAS     #
 ########################
@@ -394,5 +395,9 @@ if command -v fastfetch >/dev/null 2>&1; then
     fastfetch --config ~/.config/fastfetch/config.jsonc
 fi
 
-# Uncomment to enable recursive globbing (**)
-# shopt -s globstar
+# Carapace shell completion framework
+if command -v carapace >/dev/null 2>&1; then
+    export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
+    export PATH="$HOME/.config/carapace/bin:$PATH"
+    source <(carapace _carapace bash)
+fi

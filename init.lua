@@ -76,6 +76,9 @@ vim.opt.hlsearch = true
 -----------------------------------------------------
 -- Editing behavior
 -----------------------------------------------------
+-- Allow buffer switching without saving
+vim.opt.hidden = true
+
 -- Ask before destructive actions
 vim.opt.confirm = true
 
@@ -308,9 +311,9 @@ vim.api.nvim_create_autocmd("BufReadPre", {
 -----------------------------------------------------
 -- OSC52 clipboard (SSH copy support)
 -----------------------------------------------------
-if vim.env.SSH_CONNECTION or vim.env.SSH_TTY then
-  local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
-  if ok then
+if vim.env.SSH_CONNECTION then
+  local has_osc, osc52 = pcall(require, "vim.ui.clipboard.osc52")
+  if has_osc then
     vim.g.clipboard = {
       name = "OSC 52",
       copy = {
@@ -325,6 +328,21 @@ if vim.env.SSH_CONNECTION or vim.env.SSH_TTY then
   end
 end
 
+if vim.env.SSH_CONNECTION then
+  local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
+  if ok then
+    vim.api.nvim_create_autocmd("TextYankPost", {
+      callback = function()
+        local contents = vim.v.event.regcontents
+        if #contents > 0 then
+          -- send it over OSC52 (copy to remote → local)
+          osc52.copy("+")(contents)
+          osc52.copy("*")(contents)
+        end
+      end,
+    })
+  end
+end
 -- ==================================================
 -- End of configuration
 -- ==================================================
