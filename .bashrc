@@ -4,7 +4,13 @@
 
 # Mise shell environment manager
 if command -v mise >/dev/null 2>&1; then
-    eval "$(mise activate bash)"
+    if [[ $- != *i* ]]; then
+        # 1. Non-interactive session (IDEs, scripts): Load Shims
+        eval "$(mise activate bash --shims)"
+    else
+        # 2. Interactive session (Your actual terminal): Load Activate
+        eval "$(mise activate bash)"
+    fi
 fi
 
 ############################
