@@ -13,19 +13,29 @@
 
 ### Core Kit (In Short)
 
-`fastfetch` • `htop` • `fzf` • `fd` • `sd` • `rg` • `duf` • `dust` • `eza` • `jq` • `yq` • `zoxide` • `yazi` • `bat` • `xh` • `curlie` • `tldr` • `delta` • `lazygit` • `direnv` • `dotenvx` • `broot` • `jless` • `zip` • `unzip` • `vimium` • `shortcat`
+`fastfetch` • `htop` • `fzf` • `fd` • `sd` • `rg` • `duf` • `dust` • `eza` • `jq` • `yq` • `zoxide` • `yazi` • `bat` • `xh` • `curlie` • `tldr` • `delta` • `lazygit` • `zip` • `unzip` 
 
 ### Testing / Evaluation (Check Out)
 
+- `zellij` (The Best plug & play tmux alternative, better than tmux for some)
 - `stow` / `chezmoi` (Dotfiles Management)
 - `television` (Fuzzy Finder TUI)
-- `sesh` / `sessionx` (Terminal Session Managers)
+- `sesh` / `sessionx` (Terminal Session Managers, tmux plugins)
 - `viddy` (Modern watch command replacement)
 - `herdr` (Terminal agent multiplexer for AI coding agents; tmux alternative built for tracking agent status like Claude Code/Codex, though tmux remains preferred)
+- `vimium` (Browser keyboard navigation) `shortcat` (os level keyboard based navigation)
+- `direnv` / `dotenvx` 
+- `broot` (Yazi alternative)
+- `jless`
+- `logdy` (Lightweight streaming log viewer Web UI)
+- `act` (Run GitHub Actions locally inside Docker)
+- `trippy` (Modern traceroute + ping TUI for network diagnosis)
+- `gdu` (lite alternative to ncdu, for Fastest Disk Analyzer)
+- `age` (alternative to gpg, for Modern Encryption)
 
 ### Internal Bench (Noted / Under Review)
 
-- **Monitoring/Trace:** `atop`, `btop`, `btm`, `ncdu`, `perf`, `watchexec`, `hyperfine`, `dozzle` (Real-time log viewer for Docker containers)
+- **Monitoring/Trace:** `atop`, `btop`, `btm`, `ncdu`, `gdu`, `perf`, `watchexec`, `hyperfine`, `dozzle` (Real-time log viewer for Docker containers)
 - **Parsers/Search:** `jaq`, `dasel`, `qq`, `plocate`
 - **Utilities:** `just` (Note: mise task runner is preferred), `ouch`, `rage`, `sudo needrestart`
 - **Completions:** `bash-completion`, `carapace`
@@ -43,7 +53,7 @@ Use a modern emulator like Windows Terminal or WezTerm for tabs, splits, GPU acc
 
 ### Window Management and Navigation
 
-- **macOS Tiling:** `aerospace` (i3-like tiling window manager for macOS based on SRS)
+- **macOS Tiling:** `aerospace` (i3-like tiling window manager for macOS based on SRS) (better alternative of skhd)
 - **Browser Navigation Extension:** `Vimium` / `Vimium C` (Vim keyboard shortcuts everywhere inside the browser)
 - **OS / Desktop UI Navigation:** `shortcat` (Keyboard navigation for GUI elements across the operating system)
 
@@ -114,6 +124,7 @@ Useful for debugging networks and APIs:
 - `doggo` — modern DNS lookup utility (`dig` replacement).
 - `bandwhich` — (Optional) real-time bandwidth tracking per process.
 - `tailscale` / `netbird` — Zero-config secure private overlays/mesh VPN networks for overlay links.
+- `trippy` — Modern traceroute + ping TUI for network diagnosis.
 
 ---
 
@@ -128,6 +139,7 @@ Essential for infrastructure and automation:
 - `cloudflared` — Cloudflare Tunnel daemon.
 - `terraform` — Infrastructure as Code engine.
 - `gh` / `dash-cli` — GitHub integration managers.
+- `skopeo` — Inspect remote Docker registries/images without pulling.
 
 ---
 
@@ -152,10 +164,19 @@ Utilities that streamline common or recurring tasks:
 ````bash
 # Core System Tools
 sudo apt update && sudo apt install -y \
-  git curl wget tmux htop jq yq bash-completion rsync zip unzip \
+  git curl wget tmux htop bash-completion rsync zip unzip \
   build-essential ca-certificates gnupg software-properties-common \
   less man-db manpages dnsutils net-tools pciutils usbutils lsof strace
 
+Install Through Official Registries into apt
+
+Follow their official installation docs to add their specific GPG keys to /etc/apt/sources.list.d/
+- `docker`-ce / docker-compose-plugin (Docker Engine)
+- `mise` (The tool manager itself)
+- `tailscale` / netbird (Mesh VPN daemons)
+- `cloudflared` (Cloudflare Tunnel daemon)
+- `kubectl` (If managed system-wide for automation scripts)
+- anyother similar tool
 
 ## VPN / Mesh
 
@@ -177,7 +198,7 @@ sudo apt update && sudo apt install -y mise
 Register common tools globally with mise:
 
 ```bash
-mise use -g fzf fd ripgrep bat eza zoxide neovim yazi dust duf doggo xh sd carapace usage
+mise use -g fzf fd ripgrep bat eza zoxide neovim yazi dust duf doggo xh sd carapace usage jq yq
 ```
 
 ## Python TUI: posting (uv tool)
