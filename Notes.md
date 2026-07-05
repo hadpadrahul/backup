@@ -1,137 +1,216 @@
-# CLI Tools & Terminal Productivity
+# CLI Tools and Terminal Productivity
 
-## In short
-Fastfetch, Htop, Fzf, Fd, sd, Rg, Duf, dust, Eza, Jq, yq, Zoxide, yazi, Bat, xh, tldr, delta, lazygit, direnv, yazi or broot, jless, zip, unzip
+## Installation Architecture (The Rule)
 
-## Check out
-- Stow / chezmoi
-
-## Noted
-- atop
-- btop
-- btm
-- ncdu
-- perf
-- just / mise
-- plocate
-- bash-completion
-- carapace
-- ouch
-- jaq
-- hyperfine
-- watchexec
-- rage
-- dasel
-- qq
+- **System Tools:** Use `apt` for base system packages and core utilities.
+- **Official Sources:** Use official repositories for external platforms (Docker, Cloudflare, Kubernetes, Tailscale, etc.).
+- **Mise Engine:** Install `mise` by registering its official repository via `apt`.
+- **Developer Experience (DX) and Tooling:** Use `mise use -g <tool>` to handle global CLI binaries.
 
 ---
 
-## 1. Terminal Setup & Shell
+## Quick Reference Lists
+
+### Core Kit (In Short)
+
+`fastfetch` • `htop` • `fzf` • `fd` • `sd` • `rg` • `duf` • `dust` • `eza` • `jq` • `yq` • `zoxide` • `yazi` • `bat` • `xh` • `curlie` • `tldr` • `delta` • `lazygit` • `direnv` • `dotenvx` • `broot` • `jless` • `zip` • `unzip` • `vimium` • `shortcat`
+
+### Testing / Evaluation (Check Out)
+
+- `stow` / `chezmoi` (Dotfiles Management)
+- `television` (Fuzzy Finder TUI)
+- `sesh` / `sessionx` (Terminal Session Managers)
+- `viddy` (Modern watch command replacement)
+- `herdr` (Terminal agent multiplexer for AI coding agents; tmux alternative built for tracking agent status like Claude Code/Codex, though tmux remains preferred)
+
+### Internal Bench (Noted / Under Review)
+
+- **Monitoring/Trace:** `atop`, `btop`, `btm`, `ncdu`, `perf`, `watchexec`, `hyperfine`, `dozzle` (Real-time log viewer for Docker containers)
+- **Parsers/Search:** `jaq`, `dasel`, `qq`, `plocate`
+- **Utilities:** `just` (Note: mise task runner is preferred), `ouch`, `rage`, `sudo needrestart`
+- **Completions:** `bash-completion`, `carapace`
+
+---
+
+## 1. Terminal Setup and Shell
 
 ### Terminal Emulator
-Use a modern emulator like Windows Terminal or WezTerm for tabs, splits, GPU acceleration, and customization.  
-(wezterm and ghostty best)  
-(alacritty, kitty optional)
+
+Use a modern emulator like Windows Terminal or WezTerm for tabs, splits, GPU acceleration, and customization.
+
+- **Top Picks:** `wezterm`, `ghostty`
+- **Alternatives:** `Windows Terminal`, `alacritty`, `kitty`
+
+### Window Management and Navigation
+
+- **macOS Tiling:** `aerospace` (i3-like tiling window manager for macOS based on SRS)
+- **Browser Navigation Extension:** `Vimium` / `Vimium C` (Vim keyboard shortcuts everywhere inside the browser)
+- **OS / Desktop UI Navigation:** `shortcat` (Keyboard navigation for GUI elements across the operating system)
 
 ### Terminal Shells
-Pwsh, zsh, nushell, fish
 
-### Fonts
-- Hack Nerd Font (current)
-- JetBrains Mono Nerd Font (recommended)
-- Fira Code Nerd Font
+`pwsh`, `bash`, `zsh`, `nushell`, `fish`
 
-Recommended for readability, ligatures, and prompt icons.
+### Typography and Prompt
 
-### Prompt
-Starship prompt — fast, context-aware, minimal but informative.
+- **Fonts:** `Hack Nerd Font` • `JetBrains Mono Nerd Font` (Current) • `Fira Code Nerd Font`
+- **Prompt Engine:** `starship` (Fast, cross-shell, context-aware, minimal but informative)
 
 ---
 
-## 2. Navigation & Search
+## 2. Navigation and Search
 
 Modern replacements for directory traversal and file finding:
 
-- zoxide — learns frequently used directories for quick jumping
-- fd — fast file finder, simpler and faster than find
-- ripgrep (rg) — blazing fast recursive search that respects `.gitignore`
-- eza — modern `ls` replacement with tree view and Git status support; part of your profile already
+- `zoxide` — learns frequently used directories for quick jumping.
+- `fd` — fast file finder, simpler and faster than find.
+- `ripgrep (rg)` — blazing fast recursive search that respects `.gitignore`.
+- `eza` — modern `ls` replacement with tree view and Git status support; part of your profile already.
 
 ---
 
-## 3. Fuzzy Search & Preview
+## 3. Fuzzy Search and Preview
 
-- fzf — fuzzy finder for files, history, processes, etc.
-- Use bat as a previewer inside fzf for rich syntax highlighting and context
-
----
-
-## 4. History & Command Suggestions
-
-- PSReadLine + fzf history — fast fuzzy history search (Ctrl+R)
-- (Explore later) Atuin — enhanced, persistent, searchable history across sessions (timestamps, context)
-- (Explore later) Carapace — experiment with context-aware completions for CLI tools
+- `fzf` — general-purpose command-line fuzzy finder for files, history, processes, etc.
+- `bat` — syntax highlighting file viewer used as the preview window inside `fzf` for rich context.
 
 ---
 
-## 5. Git & Source Control Helpers
+## 4. History and Command Suggestions
 
-- lazygit or gitui — terminal UIs for Git workflows (staging, commits, branches)
-- delta — diff pager with syntax highlighting, great for Git diffs
+- `PSReadLine` + `fzf history` — fast fuzzy history search via `Ctrl+R`.
+- `atuin` — (Explore later) enhanced, persistent, SQLite-powered shell history across sessions with rich metadata.
+- `carapace` — (Explore later) experiment with context-aware completions engine for CLI tools.
 
 ---
 
-## 6. System Monitoring & Utilities
+## 5. Git and Source Control Helpers
+
+- `lazygit` / `gitui` — terminal UIs for Git workflows (staging, commits, branches).
+- `delta` — diff pager with syntax highlighting, great for side-by-side terminal comparisons.
+- `hunk` — (Explore later) optional terminal diff viewer if tracking hunks.
+
+---
+
+## 6. System Monitoring and Utilities
 
 Tools that give better insights than traditional built-ins:
 
-- btop — real-time system monitor (CPU, memory, disks, network)
-- procs — modern alternative to ps
-- duf — user-friendly disk usage summary
-- dust — disk usage analyzer
+- `htop` / `btop` — real-time interactive system monitors (CPU, memory, disks, network).
+- `procs` — modern alternative to `ps` with human-readable output.
+- `duf` — user-friendly disk usage summary (`df` replacement).
+- `dust` — directory size analyzer (`du` replacement).
+- `dozzle` — TUI/Web dashboard specifically for real-time streaming of Docker container logs.
 
 ---
 
-## 7. Networking & API Tools
+## 7. Networking and API Tools
 
 Useful for debugging networks and APIs:
 
-- xh — human-friendly HTTP clients for API testing (optional: httpie)
-- (Optional) bandwhich — real-time bandwidth per process (network insight)
+- `xh` — human-friendly HTTP client for API testing.
+- `curlie` — power of curl with the ease of use of httpie.
+- `posting` — powerful Postman-like TUI API client that lives inside the terminal (run via uv/pipx).
+- `doggo` — modern DNS lookup utility (`dig` replacement).
+- `bandwhich` — (Optional) real-time bandwidth tracking per process.
+- `tailscale` / `netbird` — Zero-config secure private overlays/mesh VPN networks for overlay links.
 
 ---
 
-## 8. DevOps & Cloud CLI Tools
+## 8. DevOps and Cloud CLI Tools
 
 Essential for infrastructure and automation:
 
-- Docker CLI + lazydocker — manage containers and images from terminal
-- kubectl + k9s — Kubernetes CLI and TUI for easier cluster navigation
-- AWS CLI / Azure CLI / gcloud CLI — cloud resource management from terminal
-- Dive — inspect Docker image layers to optimize size and performance
+- `Docker CLI` + `lazydocker` — manage containers and images from the terminal.
+- `kubectl` + `k9s` — Kubernetes CLI and TUI for easier cluster navigation.
+- `AWS CLI` / `Azure CLI` / `gcloud CLI` — cloud resource management from the terminal.
+- `dive` — inspect Docker image layers to optimize size and performance.
+- `cloudflared` — Cloudflare Tunnel daemon.
+- `terraform` — Infrastructure as Code engine.
+- `gh` / `dash-cli` — GitHub integration managers.
 
 ---
 
-## 9. Productivity & Task Helpers
+## 9. Productivity, Environment, and Task Helpers
 
 Utilities that streamline common or recurring tasks:
 
-- sd — intuitive find-and-replace tool (modern sed)
-- tldr — concise, community-maintained help pages for CLI commands
-- just — simple project task runner
-- pueue — CLI queue for long or parallel jobs
-- miniserve — quick HTTP file server from CLI
+- `direnv` — shell extension that loads/unloads environment variables depending on the current directory (`.envrc`).
+- `dotenvx` — modern, secure alternative for managing `.env` files with encryption support across environments.
+- `sd` — intuitive find-and-replace tool (modern `sed`).
+- `tldr` / `tealdeer` — concise, community-maintained help pages for CLI commands.
+- `pueue` — CLI queue and daemon worker for long or parallel jobs.
+- `miniserve` — quick ad-hoc HTTP file server from the CLI.
+- `espanso` — cross-platform text expander.
 
 ---
 
-## 10. Optional Tools Worth Exploring
+## 10. Direct Installation Manifests
 
-Not core to the current workflow but useful to investigate:
+### System Tier (apt)
 
-- Atuin — enhanced persistent shell history with metadata
-- Carapace — context-aware fuzzy CLI completion engine
-- broot — interactive directory tree navigator
-- fselect — SQL-like file finder
-- ncdu — disk usage utility with interactive UI
-- Gemini CLI / AI coding CLIs — future CLI tools integrating AI assistance
-- .stow — for handling dotfiles
+````bash
+# Core System Tools
+sudo apt update && sudo apt install -y \
+  git curl wget tmux htop jq yq bash-completion rsync zip unzip \
+  build-essential ca-certificates gnupg software-properties-common \
+  less man-db manpages dnsutils net-tools pciutils usbutils lsof strace
+
+
+## VPN / Mesh
+
+Tailscale or Netbird for VPN / private mesh (Netbird is a better alternative with its own pros and cons eg gui, dns routing, proxy etc).
+
+## Mise engine (add official repo)
+
+Commands to add the Mise APT repository and install mise:
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+wget -qO- https://mise.jdx.dev/gpg-key.pub | gpg --dearmor | sudo tee /etc/apt/keyrings/mise-archive-keyring.gpg > /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/mise-archive-keyring.gpg] https://mise.jdx.dev/deb stable main" | sudo tee /etc/apt/sources.list.d/mise.list
+sudo apt update && sudo apt install -y mise
+````
+
+## DX tier (use mise to register global CLI tools)
+
+Register common tools globally with mise:
+
+```bash
+mise use -g fzf fd ripgrep bat eza zoxide neovim yazi dust duf doggo xh sd carapace usage
+```
+
+## Python TUI: posting (uv tool)
+
+Install uv and the posting tool:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install --python 3.13 posting
+```
+
+## 11. Maintenance scripts
+
+Bash history deduplication (preserve timestamps):
+
+```bash
+tac "$HISTFILE" | awk '/^#[0-9]+$/{ts=$0;next}!s[$0]++&&!/^(clear|cls|l|ls|la|ll|lh|pwd|exit|cd|cd \.\.|history|top|htop|v)$/{if(ts)print ts;print;ts=""}' | tac >"$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE" && history -c && history -r
+```
+
+Bash history deduplication (remove timestamps):
+
+```bash
+tac "$HISTFILE" | awk '!/^#[0-9]+$/&&!s[$0]++&&!/^(clear|cls|l|ls|la|ll|lh|pwd|exit|cd|cd \.\.|history|top|htop|v)$/' | tac >"$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE" && history -c && history -r
+```
+
+PowerShell 7 history deduplication (preserve last occurrence):
+
+```powershell
+$h=(Get-PSReadLineOption).HistorySavePath;$l=[IO.File]::ReadAllLines($h);$s=@{};$o=for($i=$l.Length-1;$i-ge0;$i--){if(!$s[$l[$i]]-and$l[$i]-notmatch'^(clear|cls|l|ls|la|ll|lh|pwd|exit|cd|history|top|htop|v)$'){$s[$l[$i]]=$true;$l[$i]}};[array]::Reverse($o);$o|Set-Content $h
+```
+
+PowerShell 7 history alphabetical sort and unique:
+
+```powershell
+(Get-Content (Get-PSReadLineOption).HistorySavePath | Sort-Object -Unique) | Set-Content (Get-PSReadLineOption).HistorySavePath
+```
