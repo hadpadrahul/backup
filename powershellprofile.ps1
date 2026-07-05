@@ -51,7 +51,7 @@ Set-PSReadLineOption -CompletionQueryItems 200
 
 $Global:HistoryIgnorePatterns = @(
     'ls', 'l', 'la', 'll', 'lt', 'tree',
-    'clear', 'cls',
+    'clear', 'cls', 'cleawr',
     'cd', 'pwd',
     'exit'
 )
@@ -100,7 +100,7 @@ Set-PSReadLineKeyHandler -Key Alt+.           -Function YankLastArg
 # ----------------------------------------
 
 # Base fzf UI defaults (safe everywhere)
-$env:FZF_DEFAULT_OPTS = '--height=40% --reverse --border --cycle --multi --highlight-line --wrap=word'
+$env:FZF_DEFAULT_OPTS = '--height=60% --reverse --border --cycle --multi --highlight-line --wrap=word'
 
 # ----------------------
 # fd integration (safe)
@@ -211,8 +211,8 @@ if (Get-Command Enable-TransientPrompt -ErrorAction SilentlyContinue) {
 #     Set-Alias cat Get-Content
 # }
 
-Set-Alias which Get-Command
 Set-Alias notepad 'C:\Windows\System32\notepad.exe'
+Set-Alias v nvim
 
 # Create directory and enter it
 function mkcd {

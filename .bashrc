@@ -1,14 +1,22 @@
 # ~/.bashrc
 # Unified, portable Bash configuration
-# Safe for: personal machines, servers, SSH, tmux, TTY, containers
+# Safe for: personal machines, VPS, servers, SSH, tmux, TTY, containers
+#
+# Provisioning assumption (for context, not enforced here):
+#   - apt installs base/system tools (git, curl, tmux, htop, jq, yq, docker, etc.)
+#   - mise installs fast-moving CLI tools (nvim, rg, fd, eza, doggo, etc.)
+#   mise MUST activate before any `command -v` check for mise-managed tools,
+#   which is why it's the very first thing in this file.
 
-# Mise shell environment manager
+########################
+# MISE (must run first)
+########################
 if command -v mise >/dev/null 2>&1; then
     if [[ $- != *i* ]]; then
-        # 1. Non-interactive session (IDEs, scripts): Load Shims
+        # Non-interactive session (IDEs, scripts): lightweight shims
         eval "$(mise activate bash --shims)"
     else
-        # 2. Interactive session (Your actual terminal): Load Activate
+        # Interactive session (your actual terminal): full activate
         eval "$(mise activate bash)"
     fi
 fi
@@ -16,7 +24,7 @@ fi
 ############################
 # INTERACTIVE SHELL ONLY  #
 ############################
-# Prevent execution in non-interactive shells (scripts, scp, etc.)
+# Stop here for non-interactive shells (scripts, scp, rsync, etc.)
 case $- in
     *i*) ;;
       *) return ;;
@@ -25,7 +33,7 @@ esac
 ########################
 # SHELL MODE DETECTION #
 ########################
-# Detect if running over SSH
+# Detect if running over SSH (used later for a prompt badge)
 if [ -n "$SSH_CONNECTION" ]; then
     export IS_SSH=1
 fi
@@ -38,75 +46,70 @@ fi
 ########################
 # CORE SHELL BEHAVIOR #
 ########################
-# Append history instead of overwriting
-shopt -s histappend
+shopt -s histappend      # append history instead of overwriting
+shopt -s checkwinsize    # keep LINES/COLUMNS in sync with terminal size
 
-# Automatically update LINES and COLUMNS
-shopt -s checkwinsize
+# shopt -s nullglob      # uncomment: unmatched globs expand to nothing
+# shopt -s globstar      # uncomment: enable recursive ** globbing
 
-# Nothing on unmatched globs
-# shopt -s nullglob
-
-# Uncomment to enable recursive globbing (**)
-# shopt -s globstar
-
-# Safer pipelines
-set -o pipefail
-
-# Secure default permissions
-umask 022
+set -o pipefail          # a pipeline fails if any stage fails, not just the last
+umask 022                # secure default file permissions
 
 ############################
 # HISTORY CONFIG          #
 ############################
-
-# Large history (safe for servers, tmux, SSH)
 HISTFILE=~/.bash_history
 HISTSIZE=100000
 HISTFILESIZE=200000
-
-# Store timestamps in history
 HISTTIMEFORMAT="%F %T "
 
-# Ignore duplicates and trivial commands
-# (merged behavior: ignoreboth + erasedups)
+# Ignore duplicates/trivial commands (ignoreboth + erasedups merged)
 HISTCONTROL=ignoreboth:erasedups
-HISTIGNORE="ls:ll:l:la:cd:cd -:pwd:exit:clear:cleawr:history:&:[ ]*"
+HISTIGNORE="ls:ll:l:la:lh:cd:cd -:pwd:exit:clear:cleawr:cls:pwd:top:htop:v:vi:history:&:[ ]*"
 
-# Sync history across multiple sessions
+# Sync history across multiple simultaneous sessions
 __history_sync() {
-    history -a    # append new history lines
-    history -n    # Reads new lines from history
+    history -a    # append new lines from this session to HISTFILE
+    history -n    # read in new lines other sessions have appended
 }
-
-# Preserve any existing PROMPT_COMMAND
+# Preserve any PROMPT_COMMAND set elsewhere (e.g. by mise/tools) instead of clobbering it
 PROMPT_COMMAND="__history_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+
+# Belt-and-suspenders: also flush history on shell exit/kill
+trap 'history -a' EXIT
 
 ########################
 # LESS (PAGER) CONFIG #
 ########################
-# -R : allow raw ANSI colors
-# -F : quit if output fits on one screen
-# -X : do not clear screen after exit
+# -R allow raw ANSI colors, -F quit if output fits one screen, -X don't clear on exit
 export LESS="-RFX"
 
-########################
-# LESSPIPE            #
-########################
-# Enable smart previews (archives, PDFs, etc.)
+# Smart previews for less (archives, PDFs, etc.) if lesspipe is installed
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
 
 ########################
 # ENVIRONMENT VARS    #
 ########################
-# Preferred editor
-export EDITOR=nvim
-export VISUAL=nvim
+if command -v nvim >/dev/null 2>&1; then
+    export EDITOR=nvim
+    export VISUAL=nvim
+fi
+
+# sudoedit with nvim, falling back to system default if nvim isn't on PATH
+sudoedit() {
+    local nvim_path
+    nvim_path=$(command -v nvim)
+
+    if [ -n "$nvim_path" ]; then
+        SUDO_EDITOR="$nvim_path" command sudoedit "$@"
+    else
+        command sudoedit "$@"
+    fi
+}
 
 ########################
 # DEBIAN CHROOT INFO  #
 ########################
-# Display chroot name in prompt if present
 if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
@@ -114,12 +117,11 @@ fi
 ########################
 # PROMPT CONFIG       #
 ########################
-# Enable colors for capable terminals
 case "$TERM" in
     xterm-color|*-256color) color_prompt=yes ;;
 esac
 
-# Optional manual override (from classic bashrc)
+# Optional manual override
 # force_color_prompt=yes
 
 if [ -n "${force_color_prompt:-}" ]; then
@@ -130,17 +132,31 @@ if [ -n "${force_color_prompt:-}" ]; then
     fi
 fi
 
-# Main prompt
+# --- SSH badge: handy when you're bouncing between several VPS and need a
+#     quick visual reminder that this shell is remote, not local.
+ps1_ssh_tag=""
+if [ -n "$IS_SSH" ]; then
+    ps1_ssh_tag='\[\033[01;33m\][SSH]\[\033[00m\] '
+fi
+
+# --- Root color warning: on a VPS you're far more likely to actually be
+#     root than on a personal machine, so make it visually loud (red vs green).
+if [ "$(id -u)" -eq 0 ]; then
+    ps1_userhost_color='\[\033[01;31m\]'   # red
+else
+    ps1_userhost_color='\[\033[01;32m\]'   # green
+fi
+
 if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\
-\[\033[01;32m\]\u@\h\
+    PS1="${ps1_ssh_tag}"'${debian_chroot:+($debian_chroot)}\
+'"${ps1_userhost_color}"'\u@\h\
 \[\033[00m\]:\
 \[\033[01;34m\]\w\
 \[\033[00m\]\$ '
 else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    PS1="${ps1_ssh_tag}"'${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
-unset color_prompt force_color_prompt
+unset color_prompt force_color_prompt ps1_ssh_tag ps1_userhost_color
 
 # Set terminal title for xterm-like terminals
 case "$TERM" in
@@ -152,7 +168,6 @@ esac
 ########################
 # CORE COLOR ALIASES  #
 ########################
-# Classic Debian behavior, guarded
 if command -v dircolors >/dev/null 2>&1; then
     test -r ~/.dircolors \
         && eval "$(dircolors -b ~/.dircolors)" \
@@ -169,9 +184,9 @@ fi
 [ -f ~/.bash_aliases ] && . ~/.bash_aliases
 
 ########################
-# TOOL ALIASES (EZA)  #
+# TOOL ALIASES        #
 ########################
-# bat → batcat compatibility (Ubuntu/Debian)
+# bat -> batcat compatibility (Ubuntu/Debian package name)
 if command -v batcat >/dev/null 2>&1; then
     alias bat='batcat'
 fi
@@ -180,6 +195,15 @@ if command -v nvim >/dev/null 2>&1; then
     alias v='nvim'
 fi
 
+# Colorized man pages via bat/batcat, if either is available.
+# Checked directly (not via the alias above) because MANPAGER runs in a
+# non-interactive `sh -c`, where aliases from this file aren't visible.
+# If neither exists, `man` silently falls back to its normal pager (less).
+if command -v bat >/dev/null 2>&1; then
+    export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+elif command -v batcat >/dev/null 2>&1; then
+    export MANPAGER="sh -c 'col -bx | batcat -l man -p'"
+fi
 
 # Prefer eza if available, otherwise fall back to classic ls aliases
 if command -v eza >/dev/null 2>&1; then
@@ -198,21 +222,19 @@ if command -v eza >/dev/null 2>&1; then
     alias la="eza $EZA_BASE $EZA_LONG --all"
     alias ll="eza $EZA_BASE $EZA_LONG --sort=modified --reverse"
 
-    # Enhanced tree view
-    # Fully compatible with eza flags
+    # Enhanced tree view, fully compatible with eza flags
     tree() {
         local depth=1
         local level_set=0
-        local args=()
 
-        # Positional numeric depth support (eg tree 3)
+        # Positional numeric depth support (eg `tree 3`)
         if [[ "$1" =~ ^[0-9]+$ ]]; then
             depth="$1"
             shift
             level_set=1
         fi
 
-        # Check if user provided their own level flag
+        # Respect an explicit -L/--level flag if the user passed one
         for arg in "$@"; do
             case "$arg" in
                 -L|--level|--level=*)
@@ -229,8 +251,7 @@ if command -v eza >/dev/null 2>&1; then
         fi
     }
 
-    # Enhanced long tree view
-    # Fully compatible with eza flags
+    # Enhanced long tree view, same depth-handling as tree()
     lt() {
         local depth=1
         local level_set=0
@@ -251,12 +272,25 @@ if command -v eza >/dev/null 2>&1; then
         done
 
         if [ "$level_set" -eq 1 ]; then
-            eza $EZA_BASE $EZA_LONG --tree --ignore-glob=".git" "$@"
+            eza $EZA_BASE $EZA_LONG --tree "$@"
         else
-            eza $EZA_BASE $EZA_LONG --tree --level="$depth" --ignore-glob=".git" "$@"
+            eza $EZA_BASE $EZA_LONG --tree --level="$depth" "$@"
         fi
     }
 
+    # Unified change-directory-and-list function
+    cx() {
+        local target="${1:-$HOME}"
+        if [ "$#" -gt 0 ]; then shift; fi
+
+        cd -- "$target" && {
+            if command -v eza >/dev/null 2>&1; then
+                eza $EZA_BASE $EZA_LONG --tree --level=1 "$@"
+            else
+                ls "$@"
+            fi
+        }
+    }
 else
     alias ls='ls --color=auto'
     alias ll='ls -alF'
@@ -269,10 +303,9 @@ fi
 ########################
 # Create directory and enter it safely
 mkcd() {
-    [ -n "$1" ] || { echo "Usage: mkcd <directory>"; return 1; }
+    [ -n "$1" ] || { echo "Usage: mkcd <directory>" >&2; return 1; }
     mkdir -p -- "$1" && cd -- "$1"
 }
-
 
 ########################
 # SAFER FILE OPS      #
@@ -282,58 +315,16 @@ alias cp='cp -i'
 alias mv='mv -i'
 
 ########################
-# RAW FZF CONFIG       #
-########################
-# Load distro-provided fzf keybindings & completion
-# if [ -f /usr/share/doc/fzf/examples/key-bindings.bash ]; then
-#     source /usr/share/doc/fzf/examples/key-bindings.bash
-# fi
-# if [ -f /usr/share/doc/fzf/examples/completion.bash ]; then
-#     source /usr/share/doc/fzf/examples/completion.bash
-# fi
-
-# Ctrl+r → fuzzy history search (overrides default if fzf exists)
-# if command -v fzf >/dev/null 2>&1; then
-# __fzf_history__() {
-#     local selected
-#     selected=$(history | sed 's/^[ ]*[0-9]\+[ ]*//' | tac |
-#         fzf --height=40% --reverse --border --prompt="History > ")
-#     if [ -n "$selected" ]; then
-#         READLINE_LINE="$selected"
-#         READLINE_POINT=${#READLINE_LINE}
-#     fi
-# }
-# bind -x '"\C-r": __fzf_history__'
-# fi
-
-# # Ctrl+t → fuzzy file picker (fd + bat optional)
-# if command -v fzf >/dev/null 2>&1 && command -v fd >/dev/null 2>&1; then
-# __fzf_file__() {
-#     local selected
-#     selected=$(fd --hidden --follow --exclude .git 2>/dev/null |
-#         fzf --height=40% --reverse --border \
-#             --preview 'command -v bat >/dev/null 2>&1 && bat --style=numbers --color=always --line-range :500 {}')
-#     if [ -n "$selected" ]; then
-#         READLINE_LINE+="$selected"
-#         READLINE_POINT=${#READLINE_LINE}
-#     fi
-# }
-# bind -x '"\C-t": __fzf_file__'
-# fi
-
-########################
-# FZF CONFIG (UPDATED)#
+# FZF CONFIG          #
 ########################
 if command -v fzf >/dev/null 2>&1; then
     eval "$(fzf --bash)"
 
-    export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --info=inline"
-
+    export FZF_DEFAULT_OPTS="--height 60% --layout=reverse --border --info=inline"
     export FZF_CTRL_R_OPTS="--preview 'echo {}' --preview-window=up:3:wrap"
 
     if command -v fd >/dev/null 2>&1; then
         export FZF_CTRL_T_COMMAND='fd --hidden --strip-cwd-prefix --exclude .git'
-
         export FZF_CTRL_T_OPTS="--preview 'if [ -d {} ]; then eza --color=always {} 2>/dev/null || ls -F {}; else bat --color=always --line-range :200 {} 2>/dev/null || head -n 100 {}; fi'"
     fi
 fi
@@ -353,6 +344,8 @@ fi
 ########################
 # BASH COMPLETION     #
 ########################
+# Also covers completions for anything installed via its official apt repo
+# with its own completion script (docker, etc.) — nothing extra needed there.
 if ! shopt -oq posix; then
     if [ -f /usr/share/bash-completion/bash_completion ]; then
         . /usr/share/bash-completion/bash_completion
@@ -362,9 +355,15 @@ if ! shopt -oq posix; then
 fi
 
 ########################
+# LOCAL MACHINE OVERRIDES
+########################
+# Optional per-machine config (not tracked in dotfiles)
+[ -f ~/.bashrc_local ] && . ~/.bashrc_local
+
+########################
 # PATH DEDUPLICATION  #
 ########################
-# Deduplicate PATH entries while preserving order
+# Runs after .bashrc_local so any PATH entries it adds get deduped too.
 path_dedupe() {
     local IFS=:
     local new_path=""
@@ -373,23 +372,13 @@ path_dedupe() {
     done
     PATH="$new_path"
 }
-
 [ -n "$PATH" ] && path_dedupe
 export PATH
 
 ########################
-# LOCAL MACHINE OVERRIDES
+# READLINE TWEAKS     #
 ########################
-# Optional per-machine config (not tracked in dotfiles)
-[ -f ~/.bashrc_local ] && . ~/.bashrc_local
-
-########################
-# HISTORY SAFETY TRAP #
-########################
-# Ensure history is written even on shell exit or kill
-trap 'history -a' EXIT
-
-# Fix for some SSH/TTY issues: Ensure the completion character is handled
+# Fix for some SSH/TTY issues: ensure completion character is handled sanely
 bind 'set completion-ignore-case on'
 bind 'set show-all-if-ambiguous on'
 
@@ -397,11 +386,14 @@ bind 'set show-all-if-ambiguous on'
 # OPTIONAL EXTRAS     #
 ########################
 # Uncomment if you want startup system info
-if command -v fastfetch >/dev/null 2>&1; then
-    fastfetch --config ~/.config/fastfetch/config.jsonc
-fi
+# if command -v fastfetch >/dev/null 2>&1; then
+#     fastfetch --config ~/.config/fastfetch/config.jsonc
+# fi
 
-# Carapace shell completion framework
+########################
+# CARAPACE            #
+########################
+# Multi-shell completion framework (bridges completions from zsh/fish/etc.)
 if command -v carapace >/dev/null 2>&1; then
     export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
     export PATH="$HOME/.config/carapace/bin:$PATH"

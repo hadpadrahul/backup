@@ -1,117 +1,134 @@
 -- ==================================================
 -- Neovim configuration
+-- No plugins. Standalone, copy-and-use.
 -- Personal + Server safe (SSH / TTY compatible)
--- No plugins, learning-focused, daily driver
+-- Sane defaults an intermediate vim user would recognize.
 -- ==================================================
+
+-----------------------------------------------------
+-- Leader key (must be set before ANY keymap that uses <leader>)
+-----------------------------------------------------
+vim.g.mapleader = " "
+vim.opt.timeout = true
+vim.opt.timeoutlen = 800
 
 -----------------------------------------------------
 -- Startup & filetypes
 -----------------------------------------------------
--- Enable filetype detection, plugins, indentation
 vim.cmd("filetype plugin indent on")
 
--- Speed up Lua module loading (Neovim 0.9+)
+-- Speed up Lua module loading (Neovim 0.9+, safe no-op on older versions)
 pcall(vim.loader.enable)
+
+-- vim.uv is the current name; vim.loop is the deprecated alias (pre-0.10)
+local uv = vim.uv or vim.loop
+
+-- Used below to gate on Neovim's built-in comment operator,
+-- which only exists from 0.10 onward.
+local has_builtin_comment = vim.fn.has("nvim-0.10") == 1
 
 -----------------------------------------------------
 -- UI & visibility (TTY-safe)
 -----------------------------------------------------
--- Line numbers (absolute + relative)
 vim.opt.number = true
 vim.opt.relativenumber = true
-
--- Highlight current line (can be toggled)
 vim.opt.cursorline = true
-
--- Do not wrap long lines (logs, configs)
-vim.opt.wrap = false
-
--- Keep context visible while scrolling
+vim.opt.wrap = false            -- don't wrap long lines (logs, configs)
 vim.opt.scrolloff = 8
 vim.opt.sidescrolloff = 8
-
--- Prevent text shifting when signs appear
-vim.opt.signcolumn = "yes"
-
--- Show partially typed commands
+vim.opt.signcolumn = "yes"      -- prevent text shifting when signs appear
 vim.opt.showcmd = true
+vim.opt.mouse = "a"             -- mouse support in all modes
 
--- Enable true color only if supported
+-- Enable true color only if Neovim was built with support for it.
 if vim.fn.has("termguicolors") == 1 then
   vim.opt.termguicolors = true
 end
 
--- Safe builtin colorscheme (never errors)
+-- Safe builtin colorscheme (ships with Neovim, never errors, no plugin needed)
 pcall(vim.cmd.colorscheme, "habamax")
 
 -----------------------------------------------------
--- Indentation (language-agnostic)
+-- Indentation (language-agnostic baseline)
 -----------------------------------------------------
--- 4 spaces, no hard tabs
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
 vim.opt.expandtab = true
-
--- Smart indentation
 vim.opt.autoindent = true
 vim.opt.smartindent = true
 
--- Folding (indent-based, no plugins)
+-- Don't auto-continue comment leaders when hitting o/O or wrapping text.
+vim.opt.formatoptions:remove({ "c", "r", "o" })
+
+-- Folding (indent-based, no plugins needed)
 vim.opt.foldmethod = "indent"
-vim.opt.foldlevel = 99   -- Start with all folds open 
+vim.opt.foldlevel = 99           -- start with all folds open
+
+-- Per-filetype indent overrides. These fix the classic
+-- "everything is 4 spaces even where the ecosystem convention is 2"
+-- problem (web/config-y languages), and the classic "Neovim converted
+-- my Makefile's tabs to spaces and now `make` fails" problem.
+vim.api.nvim_create_autocmd("FileType", {
+  desc = "2-space indent for common web/config/markup languages",
+  pattern = {
+    "yaml", "yml", "json", "jsonc", "html", "xml", "css", "scss",
+    "javascript", "javascriptreact", "typescript", "typescriptreact",
+    "lua", "toml", "vim",
+  },
+  callback = function()
+    vim.opt_local.shiftwidth = 2
+    vim.opt_local.tabstop = 2
+    vim.opt_local.softtabstop = 2
+  end,
+})
+
+vim.api.nvim_create_autocmd("FileType", {
+  desc = "Makefiles require literal tabs, not spaces",
+  pattern = "make",
+  callback = function()
+    vim.opt_local.expandtab = false
+  end,
+})
 
 -----------------------------------------------------
 -- Search behavior
 -----------------------------------------------------
--- Case-insensitive unless uppercase used
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
-
--- Incremental search
 vim.opt.incsearch = true
-
--- Highlight matches (easy to clear)
 vim.opt.hlsearch = true
+
+-- Live preview substitutions (:s/.../.../) as you type, no plugin needed.
+vim.opt.inccommand = "split"
 
 -----------------------------------------------------
 -- Editing behavior
 -----------------------------------------------------
--- Allow buffer switching without saving
-vim.opt.hidden = true
-
--- Ask before destructive actions
-vim.opt.confirm = true
-
--- Modern backspace behavior
+vim.opt.hidden = true            -- switch buffers without saving
+vim.opt.confirm = true           -- ask before destructive actions
 vim.opt.backspace = { "indent", "eol", "start" }
-
--- Faster UI updates
 vim.opt.updatetime = 200
-
--- Reduce redraws (important over SSH)
-vim.opt.lazyredraw = true
-
--- Faster key recognition (high latency)
+vim.opt.lazyredraw = true        -- fewer redraws, helps over SSH
 vim.opt.ttimeout = true
-vim.opt.ttimeoutlen = 50
+vim.opt.ttimeoutlen = 50         -- faster key recognition on high-latency links
+
+-- Let :find search subdirectories (built-in fuzzy-ish file finder, no plugin)
+vim.opt.path:append("**")
+vim.opt.wildignore:append({ "*/node_modules/*", "*/.git/*" })
 
 -----------------------------------------------------
--- Files & undo (SERVER SAFE)
+-- Files & undo (server safe)
 -----------------------------------------------------
--- Disable swap / backup files
 vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.writebackup = false
 
--- Persistent undo
 vim.opt.undofile = true
 vim.opt.undolevels = 2000
 
--- Undo directory (STRING, not vim.opt)
 local undodir = vim.fn.stdpath("data") .. "/undo"
 vim.opt.undodir = undodir
 
--- Create undo directory if missing
 pcall(function()
   if vim.fn.isdirectory(undodir) == 0 then
     vim.fn.mkdir(undodir, "p")
@@ -121,199 +138,18 @@ end)
 -----------------------------------------------------
 -- Clipboard (local + SSH safe)
 -----------------------------------------------------
--- Use system clipboard when available
+
+-- Use the system clipboard whenever it's available.
 if vim.fn.has("clipboard") == 1 then
   vim.opt.clipboard = "unnamedplus"
 end
 
------------------------------------------------------
--- Split behavior
------------------------------------------------------
--- Natural split directions
-vim.opt.splitright = true
-vim.opt.splitbelow = true
-
--- Better diff defaults
-vim.opt.diffopt:append("vertical")
-vim.opt.diffopt:append("linematch:60")
-
------------------------------------------------------
--- Command-line completion
------------------------------------------------------
--- Bash-like completion for :
-vim.opt.wildmenu = true
-vim.opt.wildmode = { "longest:full", "full" }
-
------------------------------------------------------
--- Whitespace visibility (learning aid)
------------------------------------------------------
-vim.opt.list = true
-vim.opt.listchars = {
-  tab = ">-",
-  trail = ".",
-  nbsp = "+",
-}
-
------------------------------------------------------
--- Leader key
------------------------------------------------------
-vim.g.mapleader = " "
-
-vim.opt.timeout = true
-vim.opt.timeoutlen = 800
-
------------------------------------------------------
--- Keymaps
------------------------------------------------------
-local map = vim.keymap.set
-
--- Clear search highlight
-map("n", "<Esc><Esc>", "<cmd>nohlsearch<CR>", { silent = true })
-
--- Save / quit
-map("n", "<leader>w", "<cmd>w<CR>")
-map("n", "<leader>q", "<cmd>q<CR>")
-map("n", "<leader>wq", "<cmd>wq<CR>")
-map("n", "<leader>Q", "<cmd>q!<CR>")
-
--- Keep search results centered
-map("n", "n", "nzzzv")
-map("n", "N", "Nzzzv")
-
--- Maintain selection while indenting
-map("v", "<", "<gv")
-map("v", ">", ">gv")
-
--- Window navigation (tmux-friendly)
-map("n", "<C-h>", "<C-w>h")
-map("n", "<C-j>", "<C-w>j")
-map("n", "<C-k>", "<C-w>k")
-map("n", "<C-l>", "<C-w>l")
-
--- Fast escape
-map("i", "jk", "<Esc>")
-
------------------------------------------------------
--- Toggles (learning helpers)
------------------------------------------------------
--- Relative numbers
-map("n", "<leader>n", function()
-  vim.opt.relativenumber = not vim.opt.relativenumber:get()
-end)
-
--- Cursor line
-map("n", "<leader>c", function()
-  vim.opt.cursorline = not vim.opt.cursorline:get()
-end)
-
--- Whitespace visibility
-map("n", "<leader>l", function()
-  vim.opt.list = not vim.opt.list:get()
-end)
-
------------------------------------------------------
--- Commenting (NO plugins)
------------------------------------------------------
--- Toggle comment on current line (preserves indentation)
-map("n", "<leader>/", function()
-  local cs = vim.bo.commentstring
-  if cs == "" then return end
-
-  local comment = cs:gsub("%%s", "")
-  local line = vim.api.nvim_get_current_line()
-
-  -- Preserve indentation
-  local indent = line:match("^%s*") or ""
-  local content = line:sub(#indent + 1)
-
-  if content:match("^" .. vim.pesc(comment)) then
-    content = content:gsub("^" .. vim.pesc(comment) .. "%s?", "", 1)
-  else
-    content = comment .. " " .. content
-  end
-
-  vim.api.nvim_set_current_line(indent .. content)
-end)
-
--- Toggle comment on visual selection (preserves indentation)
-map("v", "<leader>/", function()
-  local cs = vim.bo.commentstring
-  if cs == "" then return end
-
-  local comment = cs:gsub("%%s", "")
-  local start_line = vim.fn.line("'<")
-  local end_line = vim.fn.line("'>")
-
-  for i = start_line, end_line do
-    local line = vim.fn.getline(i)
-
-    local indent = line:match("^%s*") or ""
-    local content = line:sub(#indent + 1)
-
-    if content:match("^" .. vim.pesc(comment)) then
-      -- Uncomment
-      content = content:gsub("^" .. vim.pesc(comment) .. "%s?", "", 1)
-    else
-      -- Comment
-      content = comment .. " " .. content
-    end
-
-    vim.fn.setline(i, indent .. content)
-  end
-end)
-
------------------------------------------------------
--- Quickfix navigation
------------------------------------------------------
-map("n", "]q", "<cmd>cnext<CR>")
-map("n", "[q", "<cmd>cprev<CR>")
-map("n", "<leader>qo", "<cmd>copen<CR>")
-map("n", "<leader>qc", "<cmd>cclose<CR>")
-
------------------------------------------------------
--- Terminal sanity
------------------------------------------------------
--- Exit terminal mode easily
-map("t", "<Esc>", [[<C-\><C-n>]])
-map("t", "jk", [[<C-\><C-n>]])
-
------------------------------------------------------
--- Autocommands
------------------------------------------------------
--- Highlight yanked text
-vim.api.nvim_create_autocmd("TextYankPost", {
-  callback = function()
-    vim.highlight.on_yank({ timeout = 150 })
-  end,
-})
-
--- Equalize splits on resize
-vim.api.nvim_create_autocmd("VimResized", {
-  callback = function()
-    vim.cmd("wincmd =")
-  end,
-})
-
--- Disable heavy features for large files
-vim.api.nvim_create_autocmd("BufReadPre", {
-  callback = function()
-    local max_filesize = 1024 * 1024 -- 1MB
-    local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(0))
-
-    if ok and stats and stats.size > max_filesize then
-      vim.opt_local.syntax = "off"
-      vim.opt_local.swapfile = false
-      vim.opt_local.undofile = false
-    end
-  end,
-})
-
------------------------------------------------------
--- OSC52 clipboard (SSH copy support)
------------------------------------------------------
+-- Over SSH, use OSC52 so yanks reach the LOCAL machine's clipboard.
 if vim.env.SSH_CONNECTION then
-  local has_osc, osc52 = pcall(require, "vim.ui.clipboard.osc52")
-  if has_osc then
+  local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
+
+  if ok then
+    -- Route clipboard operations through OSC52.
     vim.g.clipboard = {
       name = "OSC 52",
       copy = {
@@ -325,17 +161,20 @@ if vim.env.SSH_CONNECTION then
         ["*"] = osc52.paste("*"),
       },
     }
-  end
-end
 
-if vim.env.SSH_CONNECTION then
-  local ok, osc52 = pcall(require, "vim.ui.clipboard.osc52")
-  if ok then
+    -- Fallback: explicitly push every yank over OSC52 too. This makes
+    -- normal yanks (y, yy, visual y, etc.) reliably reach the local
+    -- clipboard, even if the clipboard provider isn't triggered.
+    local osc52_group = vim.api.nvim_create_augroup("OSC52Clipboard", {
+      clear = true,
+    })
+
     vim.api.nvim_create_autocmd("TextYankPost", {
+      group = osc52_group,
+      desc = "Copy yanks to local clipboard via OSC52",
       callback = function()
         local contents = vim.v.event.regcontents
-        if #contents > 0 then
-          -- send it over OSC52 (copy to remote → local)
+        if contents and #contents > 0 then
           osc52.copy("+")(contents)
           osc52.copy("*")(contents)
         end
@@ -343,6 +182,245 @@ if vim.env.SSH_CONNECTION then
     })
   end
 end
+
+-----------------------------------------------------
+-- Split behavior
+-----------------------------------------------------
+vim.opt.splitright = true
+vim.opt.splitbelow = true
+vim.opt.diffopt:append("vertical")
+vim.opt.diffopt:append("linematch:60")
+
+-----------------------------------------------------
+-- Command-line completion
+-----------------------------------------------------
+vim.opt.wildmenu = true
+vim.opt.wildmode = { "longest:full", "full" }
+
+-----------------------------------------------------
+-- Insert-mode completion (built-in Ctrl-N/Ctrl-P, no plugin)
+-----------------------------------------------------
+vim.opt.completeopt = { "menuone", "noselect" }
+
+-----------------------------------------------------
+-- Whitespace visibility (handy while learning/debugging files)
+-----------------------------------------------------
+vim.opt.list = true
+vim.opt.listchars = {
+  tab = ">-",
+  trail = ".",
+  nbsp = "+",
+}
+
+-----------------------------------------------------
+-- Netrw (built-in file explorer -- the file browser when you have no plugins)
+-----------------------------------------------------
+vim.g.netrw_banner = 0        -- hide the help banner at the top
+vim.g.netrw_liststyle = 3     -- tree-style listing
+vim.g.netrw_winsize = 25      -- explorer takes 25% of the window width
+vim.g.netrw_browse_split = 0  -- open files in the same window by default
+
+-----------------------------------------------------
+-- Keymaps (standard, low-surprise -- safe if you only know basic Vim)
+-----------------------------------------------------
+local map = vim.keymap.set
+
+-- Clear search highlight
+map("n", "<Esc><Esc>", "<cmd>nohlsearch<CR>", { silent = true, desc = "Clear search highlight" })
+
+-- Save / quit
+map("n", "<leader>w", "<cmd>w<CR>", { desc = "Save file" })
+map("n", "<leader>q", "<cmd>q<CR>", { desc = "Quit" })
+map("n", "<leader>wq", "<cmd>wq<CR>", { desc = "Save and quit" })
+map("n", "<leader>Q", "<cmd>q!<CR>", { desc = "Quit without saving" })
+
+-- File explorer toggle: open netrw normally, close it if you're already inside it.
+map("n", "<leader>e", function()
+  if vim.bo.filetype == "netrw" then
+    vim.cmd("silent! keepalt bd")
+  else
+    vim.cmd("Explore")
+  end
+end, { desc = "Toggle file explorer" })
+
+-- Keep search results centered
+map("n", "n", "nzzzv")
+map("n", "N", "Nzzzv")
+
+-- Maintain selection while indenting
+map("v", "<", "<gv")
+map("v", ">", ">gv")
+
+-- Window navigation (tmux-friendly)
+map("n", "<C-h>", "<C-w>h", { desc = "Go to left window" })
+map("n", "<C-j>", "<C-w>j", { desc = "Go to window below" })
+map("n", "<C-k>", "<C-w>k", { desc = "Go to window above" })
+map("n", "<C-l>", "<C-w>l", { desc = "Go to right window" })
+
+-----------------------------------------------------
+-- Commenting
+-----------------------------------------------------
+-- Neovim 0.10+ ships a built-in comment operator:
+--   gcc  toggle the current line      (normal mode)
+--   gc   toggle the selection         (visual mode)
+--   gc{motion}  toggle via a motion   (normal mode)
+-- We remap <leader>/ onto it for muscle memory.
+if has_builtin_comment then
+  map("n", "<leader>/", "gcc", { remap = true, silent = true, desc = "Toggle comment (line)" })
+  map("v", "<leader>/", "gc", { remap = true, silent = true, desc = "Toggle comment (selection)" })
+else
+  -- Fallback for Neovim < 0.10.
+  -- Supports both single-line (normal mode) and multi-line (visual mode)
+  -- toggling, and understands two-part comment strings like HTML's
+  -- "<!-- %s -->", not just single-prefix ones like "// %s".
+  local function comment_lines(start_line, end_line)
+    local cs = vim.bo.commentstring
+    if not cs or cs == "" then
+      vim.notify(
+        "No commentstring set for filetype '" .. vim.bo.filetype .. "'",
+        vim.log.levels.WARN
+      )
+      return
+    end
+
+    local left, right = cs:match("^(.-)%%s(.-)$")
+    if not left then
+      return
+    end
+    left = left:gsub("%s+$", "")
+    right = right:gsub("^%s+", "")
+
+    local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
+
+    -- Decide comment vs uncomment from whether every non-blank line
+    -- already starts with the comment prefix.
+    local all_commented = true
+    for _, l in ipairs(lines) do
+      local trimmed = l:match("^%s*(.-)%s*$")
+      if trimmed ~= "" and not trimmed:match("^" .. vim.pesc(left)) then
+        all_commented = false
+        break
+      end
+    end
+
+    for i, l in ipairs(lines) do
+      local indent, content = l:match("^(%s*)(.*)$")
+      if content ~= "" then
+        if all_commented then
+          content = content:gsub("^" .. vim.pesc(left) .. "%s?", "", 1)
+          if right ~= "" then
+            content = content:gsub("%s?" .. vim.pesc(right) .. "$", "", 1)
+          end
+        else
+          content = left .. " " .. content
+          if right ~= "" then
+            content = content .. " " .. right
+          end
+        end
+        lines[i] = indent .. content
+      end
+    end
+
+    vim.api.nvim_buf_set_lines(0, start_line - 1, end_line, false, lines)
+  end
+
+  map("n", "<leader>/", function()
+    local row = vim.api.nvim_win_get_cursor(0)[1]
+    comment_lines(row, row)
+  end, { silent = true, desc = "Toggle comment (line)" })
+
+  map("v", "<leader>/", function()
+    local start_line = vim.fn.line("'<")
+    local end_line = vim.fn.line("'>")
+    comment_lines(start_line, end_line)
+  end, { silent = true, desc = "Toggle comment (selection)" })
+end
+
+-----------------------------------------------------
+-- Toggles (handy, no dependencies)
+-----------------------------------------------------
+map("n", "<leader>n", function()
+  vim.opt.relativenumber = not vim.opt.relativenumber:get()
+end, { desc = "Toggle relative line numbers" })
+
+map("n", "<leader>c", function()
+  vim.opt.cursorline = not vim.opt.cursorline:get()
+end, { desc = "Toggle cursorline" })
+
+map("n", "<leader>l", function()
+  vim.opt.list = not vim.opt.list:get()
+end, { desc = "Toggle whitespace visibility" })
+
+-----------------------------------------------------
+-- Quickfix navigation
+-----------------------------------------------------
+map("n", "]q", "<cmd>cnext<CR>", { desc = "Next quickfix item" })
+map("n", "[q", "<cmd>cprev<CR>", { desc = "Previous quickfix item" })
+map("n", "<leader>qo", "<cmd>copen<CR>", { desc = "Open quickfix list" })
+map("n", "<leader>qc", "<cmd>cclose<CR>", { desc = "Close quickfix list" })
+
+-----------------------------------------------------
+-- Terminal sanity
+-----------------------------------------------------
+map("t", "<Esc>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
+
+-----------------------------------------------------
+-- Personal-preference mappings
+-----------------------------------------------------
+-- Escaping insert/terminal mode by typing "jk" is a popular habit, but it
+-- means literally typing the letters j-then-k anywhere (prose, commit
+-- messages, shell commands in :terminal) will unexpectedly bail you out.
+-- Kept here because it existed in one of the source configs.
+map("i", "jk", "<Esc>")
+-- map("t", "jk", [[<C-\><C-n>]])
+
+-----------------------------------------------------
+-- Autocommands
+-----------------------------------------------------
+-- Highlight yanked text
+vim.api.nvim_create_autocmd("TextYankPost", {
+  desc = "Briefly highlight yanked text",
+  callback = function()
+    vim.highlight.on_yank({ timeout = 150 })
+  end,
+})
+
+-- Equalize splits on resize
+vim.api.nvim_create_autocmd("VimResized", {
+  desc = "Keep splits equal size on terminal resize",
+  callback = function()
+    vim.cmd("wincmd =")
+  end,
+})
+
+-- Restore cursor to last known position when reopening a file
+vim.api.nvim_create_autocmd("BufReadPost", {
+  desc = "Restore cursor position when reopening a file",
+  callback = function()
+    local mark = vim.api.nvim_buf_get_mark(0, '"')
+    local lcount = vim.api.nvim_buf_line_count(0)
+    if mark[1] > 0 and mark[1] <= lcount then
+      pcall(vim.api.nvim_win_set_cursor, 0, mark)
+    end
+  end,
+})
+
+-- Disable heavy features for large files
+vim.api.nvim_create_autocmd("BufReadPre", {
+  desc = "Disable heavy features for very large files",
+  callback = function()
+    local max_filesize = 1024 * 1024 -- 1MB
+    local ok, stats = pcall(uv.fs_stat, vim.api.nvim_buf_get_name(0))
+
+    if ok and stats and stats.size > max_filesize then
+      vim.opt_local.syntax = "off"
+      vim.opt_local.swapfile = false
+      vim.opt_local.undofile = false
+    end
+  end,
+})
+
 -- ==================================================
 -- End of configuration
 -- ==================================================
+
