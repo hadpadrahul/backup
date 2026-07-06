@@ -11,7 +11,11 @@
 ########################
 # MISE (must run first)
 ########################
-if command -v mise >/dev/null 2>&1; then
+has() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+if has mise; then
     if [[ $- != *i* ]]; then
         # Non-interactive session (IDEs, scripts): lightweight shims
         eval "$(mise activate bash --shims)"
@@ -48,6 +52,12 @@ fi
 ########################
 shopt -s histappend      # append history instead of overwriting
 shopt -s checkwinsize    # keep LINES/COLUMNS in sync with terminal size
+shopt -s cmdhist         # save multiline commands as one history entry
+shopt -s lithist         # preserve literal newlines in multiline history
+shopt -s checkhash       # recheck hashed commands if the executable disappears
+shopt -s histverify      # don't execute history expansion immediately, let's view edit  it first
+shopt -s cdspell         # autocorrect minor typos in `cd` commands
+shopt -s hashall         # remember the full path of commands (faster than searching PATH each time)
 
 # shopt -s nullglob      # uncomment: unmatched globs expand to nothing
 # shopt -s globstar      # uncomment: enable recursive ** globbing
@@ -73,7 +83,11 @@ __history_sync() {
     history -n    # read in new lines other sessions have appended
 }
 # Preserve any PROMPT_COMMAND set elsewhere (e.g. by mise/tools) instead of clobbering it
-PROMPT_COMMAND="__history_sync${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+if [[ -n "${PROMPT_COMMAND:-}" ]]; then
+    PROMPT_COMMAND="__history_sync; $PROMPT_COMMAND"
+else
+    PROMPT_COMMAND="__history_sync"
+fi
 
 # Belt-and-suspenders: also flush history on shell exit/kill
 trap 'history -a' EXIT
@@ -81,31 +95,20 @@ trap 'history -a' EXIT
 ########################
 # LESS (PAGER) CONFIG #
 ########################
-# -R allow raw ANSI colors, -F quit if output fits one screen, -X don't clear on exit
-export LESS="-RFX"
+# -F quit if output fits one screen, -R allow raw ANSI colors, -X don't clear on exit
+export LESS="-FRX"
 
 # Smart previews for less (archives, PDFs, etc.) if lesspipe is installed
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
 
-########################
-# ENVIRONMENT VARS    #
-########################
-if command -v nvim >/dev/null 2>&1; then
+######################
+# NVIM CONFIG        #
+######################
+if has nvim; then
     export EDITOR=nvim
     export VISUAL=nvim
+    export SUDO_EDITOR="$(command -v nvim)"
 fi
-
-# sudoedit with nvim, falling back to system default if nvim isn't on PATH
-sudoedit() {
-    local nvim_path
-    nvim_path=$(command -v nvim)
-
-    if [ -n "$nvim_path" ]; then
-        SUDO_EDITOR="$nvim_path" command sudoedit "$@"
-    else
-        command sudoedit "$@"
-    fi
-}
 
 ########################
 # DEBIAN CHROOT INFO  #
@@ -125,7 +128,7 @@ esac
 # force_color_prompt=yes
 
 if [ -n "${force_color_prompt:-}" ]; then
-    if command -v tput >/dev/null 2>&1 && tput setaf 1 >/dev/null 2>&1; then
+    if has tput && tput setaf 1 >/dev/null 2>&1; then
         color_prompt=yes
     else
         color_prompt=
@@ -168,14 +171,14 @@ esac
 ########################
 # CORE COLOR ALIASES  #
 ########################
-if command -v dircolors >/dev/null 2>&1; then
+if has dircolors; then
     test -r ~/.dircolors \
         && eval "$(dircolors -b ~/.dircolors)" \
         || eval "$(dircolors -b)"
 
     alias grep='grep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias egrep='egrep --color=auto'
+    alias egrep='grep -E --color=auto'
+    alias fgrep='grep -F --color=auto'
 fi
 
 ########################
@@ -187,26 +190,27 @@ fi
 # TOOL ALIASES        #
 ########################
 # bat -> batcat compatibility (Ubuntu/Debian package name)
-if command -v batcat >/dev/null 2>&1; then
+# Colorized man pages via batcat.
+# Checked directly because MANPAGER runs in a non-interactive `sh -c`,
+# where aliases from this file aren't visible.
+# If doesn't exists, `man` silently falls back to its normal pager (less).
+if has batcat; then
     alias bat='batcat'
-fi
-
-if command -v nvim >/dev/null 2>&1; then
-    alias v='nvim'
-fi
-
-# Colorized man pages via bat/batcat, if either is available.
-# Checked directly (not via the alias above) because MANPAGER runs in a
-# non-interactive `sh -c`, where aliases from this file aren't visible.
-# If neither exists, `man` silently falls back to its normal pager (less).
-if command -v bat >/dev/null 2>&1; then
-    export MANPAGER="sh -c 'col -bx | bat -l man -p'"
-elif command -v batcat >/dev/null 2>&1; then
     export MANPAGER="sh -c 'col -bx | batcat -l man -p'"
 fi
 
+# nvim -> vim compatibility (mise installs nvim, not apt)
+if has nvim; then
+    alias v='nvim'
+fi
+
+# tldr -> tealdeer compatibility (mise installs tealdeer, not apt)
+if has tealdeer; then
+    alias tldr='tealdeer'
+fi
+
 # Prefer eza if available, otherwise fall back to classic ls aliases
-if command -v eza >/dev/null 2>&1; then
+if has eza; then
     if [[ "$TERM" != "linux" ]]; then
         EZA_BASE="--icons=always --color=always --group-directories-first"
     else
@@ -283,13 +287,8 @@ if command -v eza >/dev/null 2>&1; then
         local target="${1:-$HOME}"
         if [ "$#" -gt 0 ]; then shift; fi
 
-        cd -- "$target" && {
-            if command -v eza >/dev/null 2>&1; then
-                eza $EZA_BASE $EZA_LONG --tree --level=1 "$@"
-            else
-                ls "$@"
-            fi
-        }
+        cd -- "$target" &&
+            eza $EZA_BASE $EZA_LONG --tree --level=1 "$@"
     }
 else
     alias ls='ls --color=auto'
@@ -317,13 +316,13 @@ alias mv='mv -i'
 ########################
 # FZF CONFIG          #
 ########################
-if command -v fzf >/dev/null 2>&1; then
+if has fzf; then
     eval "$(fzf --bash)"
 
     export FZF_DEFAULT_OPTS="--height 60% --layout=reverse --border --info=inline"
     export FZF_CTRL_R_OPTS="--preview 'echo {}' --preview-window=up:3:wrap"
 
-    if command -v fd >/dev/null 2>&1; then
+    if has fd; then
         export FZF_CTRL_T_COMMAND='fd --hidden --strip-cwd-prefix --exclude .git'
         export FZF_CTRL_T_OPTS="--preview 'if [ -d {} ]; then eza --color=always {} 2>/dev/null || ls -F {}; else bat --color=always --line-range :200 {} 2>/dev/null || head -n 100 {}; fi'"
     fi
@@ -337,7 +336,7 @@ export _ZO_MAXAGE=10000
 export _ZO_RESOLVE_SYMLINKS=1
 export _ZO_FZF_OPTS="--height=40% --reverse --border"
 
-if command -v zoxide >/dev/null 2>&1; then
+if has zoxide; then
     eval "$(zoxide init bash)"
 fi
 
@@ -364,14 +363,24 @@ fi
 # PATH DEDUPLICATION  #
 ########################
 # Runs after .bashrc_local so any PATH entries it adds get deduped too.
+# path_dedupe() {
+#     local IFS=:
+#     local new_path=""
+#     for dir in $PATH; do
+#         [[ -d $dir ]] || continue
+#         [[ ":$new_path:" != *":$dir:"* ]] &&
+#             new_path="${new_path:+$new_path:}$dir"
+#     done
+#     PATH="$new_path"
+# }
+
+# Faster version using awk, but slightly heavier on startup. 
+# comment out if you want the above pure-Bash version instead.
 path_dedupe() {
-    local IFS=:
-    local new_path=""
-    for dir in $PATH; do
-        [[ ":$new_path:" != *":$dir:"* ]] && new_path="${new_path:+$new_path:}$dir"
-    done
-    PATH="$new_path"
+    PATH="$(awk -v RS=: -v ORS=: '!seen[$0]++' <<< "$PATH")"
+    PATH="${PATH%:}"
 }
+
 [ -n "$PATH" ] && path_dedupe
 export PATH
 
@@ -379,14 +388,16 @@ export PATH
 # READLINE TWEAKS     #
 ########################
 # Fix for some SSH/TTY issues: ensure completion character is handled sanely
-bind 'set completion-ignore-case on'
-bind 'set show-all-if-ambiguous on'
+if [[ $- == *i* ]]; then
+    bind 'set completion-ignore-case on'
+    bind 'set show-all-if-ambiguous on'
+fi
 
 ########################
 # OPTIONAL EXTRAS     #
 ########################
 # Uncomment if you want startup system info
-# if command -v fastfetch >/dev/null 2>&1; then
+# if has fastfetch; then
 #     fastfetch --config ~/.config/fastfetch/config.jsonc
 # fi
 
@@ -394,7 +405,7 @@ bind 'set show-all-if-ambiguous on'
 # CARAPACE            #
 ########################
 # Multi-shell completion framework (bridges completions from zsh/fish/etc.)
-if command -v carapace >/dev/null 2>&1; then
+if has carapace; then
     export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
     export PATH="$HOME/.config/carapace/bin:$PATH"
     source <(carapace _carapace bash)

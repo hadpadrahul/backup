@@ -164,9 +164,13 @@ Utilities that streamline common or recurring tasks:
 ````bash
 # Core System Tools
 sudo apt update && sudo apt install -y \
-  git curl wget tmux htop bash-completion rsync zip unzip \
+  git curl wget tmux htop bash-completion rsync \
+  zip unzip tar xz-utils \
   build-essential ca-certificates gnupg software-properties-common \
-  less man-db manpages dnsutils net-tools pciutils usbutils lsof strace
+  less man-db manpages \
+  dnsutils net-tools pciutils usbutils lsof strace \
+  file procps iproute2 iputils-ping traceroute \
+  age jq ncdu
 
 Install Through Official Registries into apt
 
@@ -198,7 +202,40 @@ sudo apt update && sudo apt install -y mise
 Register common tools globally with mise:
 
 ```bash
-mise use -g fzf fd ripgrep bat eza zoxide neovim yazi dust duf doggo xh sd carapace usage jq yq
+mise use -g \
+  fzf \
+  fd \
+  ripgrep \
+  bat \
+  eza \
+  zoxide \
+  neovim \
+  yazi \
+  doggo \
+  carapace \
+  xh \
+  sd \
+  yq \
+  github:dalance/procs \
+  hyperfine \
+  watchexec \
+  github:ouch-org/ouch \
+  fastfetch \
+  duf \
+  dust \
+  usage
+```
+
+Optional
+
+```bash
+mise use -g \
+  lazygit \
+  btop \
+  ncdu \
+  gdu \
+  trippy \
+  tealdeer \
 ```
 
 ## Python TUI: posting (uv tool)
