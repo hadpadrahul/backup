@@ -6,20 +6,20 @@
 
 ## Table of Contents
 
-- [System Principles](#-system-principles-non-negotiable-rules)
-- [Core CLI Kit](#-core-cli-kit-daily-use)
-- [Experimental Tools](#-experimental--evaluation-tools)
-- [Terminal & Shell Ecosystem](#-terminal--shell-ecosystem)
-- [Navigation & File Discovery](#-navigation--file-discovery)
-- [Fuzzy Finding & Preview](#-fuzzy-finding--preview-system)
-- [History & Completion](#-history--completion-system)
-- [Git & Version Control](#-git--version-control-tooling)
-- [System Monitoring](#-system-monitoring--analysis)
-- [Networking & API](#-networking--api-tools)
-- [DevOps & Cloud](#-devops--cloud-tooling)
-- [Productivity & Automation](#-productivity--automation)
-- [Installation Guide](#-installation-manifests)
-- [Maintenance Scripts](#-maintenance-scripts)
+- [System Principles](#system-principles-non-negotiable-rules)
+- [Core CLI Kit](#1-core-cli-kit-daily-use)
+- [Experimental Tools](#2-experimental--evaluation-tools)
+- [Terminal & Shell Ecosystem](#3-terminal--shell-ecosystem)
+- [Navigation & File Discovery](#4-navigation--file-discovery)
+- [Fuzzy Finding & Preview](#5-fuzzy-finding--preview-system)
+- [History & Completion](#6-history--completion-system)
+- [Git & Version Control](#7-git--version-control-tooling)
+- [System Monitoring](#8-system-monitoring--analysis)
+- [Networking & API](#9-networking--api-tools)
+- [DevOps & Cloud](#10-devops--cloud-tooling)
+- [Productivity & Automation](#11-productivity--automation)
+- [Installation Guide](#12-installation-manifests)
+- [Maintenance Scripts](#13-maintenance-scripts)
 
 ---
 
