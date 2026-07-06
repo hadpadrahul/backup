@@ -38,12 +38,14 @@
 
 fastfetch  
 htop  
-fzf  
+fzf  (television is also must checkout with some config or default)
 fd  
 sd  
 ripgrep (rg)  
 duf  
-dust  
+dust
+ncdu
+age
 eza  
 jq  
 yq  
@@ -51,36 +53,40 @@ zoxide
 yazi  
 bat  
 xh  
-curlie  
+curlie  (optional, `curl` & `xh` works)
 tldr  
-delta  
-lazygit  
-zip  
-unzip  
+delta (optional, `hunk` alternative if needed)
+lazygit
+lazydocker (if needed)
+zip  (`ouch` a single alternative for all types)
+unzip
 
 ---
 
 # 2. EXPERIMENTAL / EVALUATION TOOLS
 
-zellij (tmux alternative, modern terminal multiplexer)  
-stow (dotfile symlinks)  
-chezmoi (dotfile manager with templating)  
-television (fuzzy finder TUI alternative to fzf in some workflows)  
-sesh (session manager for terminals)  
-sessionx (session management tooling)  
+## Still to Review
+chezmoi (dotfile manager with templating)
 viddy (modern `watch` replacement)  
-herdr (agent/AI terminal multiplexer concept tool)  
-vimium (browser keyboard navigation extension)  
-shortcat (OS-level keyboard navigation tool)  
-direnv (auto-load env per directory)  
-dotenvx (secure env file management with encryption)  
 broot (interactive tree navigation alternative)  
 jless (JSON viewer)  
 logdy (log streaming UI)  
 act (run GitHub Actions locally)  
 trippy (traceroute + ping TUI)  
+
+## Done Reviewing
+zellij (tmux alternative, modern terminal multiplexer)  
+stow (dotfile symlinks)
+television (fuzzy finder TUI alternative to fzf in some workflows)  
 gdu (fast disk usage analyzer)  
-age (modern encryption tool replacing gpg use cases in simple flows)  
+age (modern encryption tool replacing gpg use cases in simple flows)
+herdr (agent/AI terminal multiplexer concept tool)  
+vimium (browser keyboard navigation extension)  
+shortcat (OS-level keyboard navigation tool)  
+direnv (auto-load env per directory)  
+dotenvx (secure env file management with encryption)
+sesh (session manager for terminals)  
+sessionx (session management tooling) 
 
 ---
 
