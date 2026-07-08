@@ -72,7 +72,10 @@ broot (interactive tree navigation alternative)
 jless (JSON viewer)  
 logdy (log streaming UI)  
 act (run GitHub Actions locally)  
-trippy (traceroute + ping TUI)  
+trippy (traceroute + ping TUI)
+
+sshs (tui for ssh configs)
+atac (posting rust alternative for api testing)
 
 ## Done Reviewing
 zellij (tmux alternative, modern terminal multiplexer)  
@@ -234,8 +237,8 @@ Kubernetes (kubectl)
 mise use -g \
 fzf fd ripgrep bat eza zoxide neovim yazi \
 doggo carapace xh sd yq \
-procs hyperfine watchexec \
-ouch fastfetch duf dust usage
+github:dalance/procs hyperfine watchexec \
+github:ouch-org/ouch fastfetch duf dust usage
 ```
 
 ## optional tools

@@ -57,7 +57,6 @@ shopt -s lithist         # preserve literal newlines in multiline history
 shopt -s checkhash       # recheck hashed commands if the executable disappears
 shopt -s histverify      # don't execute history expansion immediately, let's view edit  it first
 shopt -s cdspell         # autocorrect minor typos in `cd` commands
-shopt -s hashall         # remember the full path of commands (faster than searching PATH each time)
 
 # shopt -s nullglob      # uncomment: unmatched globs expand to nothing
 # shopt -s globstar      # uncomment: enable recursive ** globbing
@@ -317,15 +316,43 @@ alias mv='mv -i'
 # FZF CONFIG          #
 ########################
 if has fzf; then
-    eval "$(fzf --bash)"
 
+    # --- 1. Try modern embedded mode (fastest path) ---
+    if fzf --bash >/dev/null 2>&1; then
+        eval "$(fzf --bash)"
+
+    # --- 2. Single structured fallback (no repeated if chains) ---
+    else
+        FZF_BASE=""
+
+        # Prefer modern distro layout
+        if [ -d /usr/share/fzf ]; then
+            FZF_BASE="/usr/share/fzf"
+
+        # Legacy Debian layout
+        elif [ -d /usr/share/doc/fzf/examples ]; then
+            FZF_BASE="/usr/share/doc/fzf/examples"
+        fi
+
+        if [ -n "$FZF_BASE" ]; then
+            [ -f "$FZF_BASE/key-bindings.bash" ] && \
+                source "$FZF_BASE/key-bindings.bash"
+
+            [ -f "$FZF_BASE/completion.bash" ] && \
+                source "$FZF_BASE/completion.bash"
+        fi
+    fi
+
+    # --- UI config (unchanged, intentional) ---
     export FZF_DEFAULT_OPTS="--height 60% --layout=reverse --border --info=inline"
     export FZF_CTRL_R_OPTS="--preview 'echo {}' --preview-window=up:3:wrap"
 
+    # --- fd integration (your original logic preserved) ---
     if has fd; then
         export FZF_CTRL_T_COMMAND='fd --hidden --strip-cwd-prefix --exclude .git'
         export FZF_CTRL_T_OPTS="--preview 'if [ -d {} ]; then eza --color=always {} 2>/dev/null || ls -F {}; else bat --color=always --line-range :200 {} 2>/dev/null || head -n 100 {}; fi'"
     fi
+
 fi
 
 ########################
