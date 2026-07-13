@@ -34,6 +34,12 @@ case $- in
       *) return ;;
 esac
 
+# Force a steady block cursor (only if stdout is an actual terminal --
+# avoids emitting a raw escape sequence into non-tty output)
+if [[ "$TERM" != "linux" && -t 1 ]]; then
+    echo -ne '\e[2 q'
+fi
+
 ########################
 # SHELL MODE DETECTION #
 ########################
@@ -55,11 +61,13 @@ shopt -s checkwinsize    # keep LINES/COLUMNS in sync with terminal size
 shopt -s cmdhist         # save multiline commands as one history entry
 shopt -s lithist         # preserve literal newlines in multiline history
 shopt -s checkhash       # recheck hashed commands if the executable disappears
-shopt -s histverify      # don't execute history expansion immediately, let's view edit  it first
+shopt -s histverify      # don't execute history expansion immediately, let's view/edit it first
 shopt -s cdspell         # autocorrect minor typos in `cd` commands
+shopt -s no_empty_cmd_completion   # don't try to complete on an empty prompt line
 
 # shopt -s nullglob      # uncomment: unmatched globs expand to nothing
 # shopt -s globstar      # uncomment: enable recursive ** globbing
+# shopt -s autocd        # deliberately left off: typing a bare dir name would cd into it
 
 set -o pipefail          # a pipeline fails if any stage fails, not just the last
 umask 022                # secure default file permissions
@@ -99,6 +107,14 @@ export LESS="-FRX"
 
 # Smart previews for less (archives, PDFs, etc.) if lesspipe is installed
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+########################
+# XDG BASE DIRECTORIES
+########################
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 ######################
 # NVIM CONFIG        #
@@ -192,7 +208,7 @@ fi
 # Colorized man pages via batcat.
 # Checked directly because MANPAGER runs in a non-interactive `sh -c`,
 # where aliases from this file aren't visible.
-# If doesn't exists, `man` silently falls back to its normal pager (less).
+# If it doesn't exist, `man` silently falls back to its normal pager (less).
 if has batcat; then
     alias bat='batcat'
     export MANPAGER="sh -c 'col -bx | batcat -l man -p'"
@@ -317,9 +333,11 @@ alias mv='mv -i'
 ########################
 if has fzf; then
 
-    # --- 1. Try modern embedded mode (fastest path) ---
-    if fzf --bash >/dev/null 2>&1; then
-        eval "$(fzf --bash)"
+    # --- 1. Try modern embedded mode (fastest path). Captured once instead
+    #        of running `fzf --bash` twice (once to test, once to eval). ---
+    __fzf_init="$(fzf --bash 2>/dev/null)"
+    if [ -n "$__fzf_init" ]; then
+        eval "$__fzf_init"
 
     # --- 2. Single structured fallback (no repeated if chains) ---
     else
@@ -341,7 +359,9 @@ if has fzf; then
             [ -f "$FZF_BASE/completion.bash" ] && \
                 source "$FZF_BASE/completion.bash"
         fi
+        unset FZF_BASE
     fi
+    unset __fzf_init
 
     # --- UI config (unchanged, intentional) ---
     export FZF_DEFAULT_OPTS="--height 60% --layout=reverse --border --info=inline"
@@ -390,22 +410,21 @@ fi
 # PATH DEDUPLICATION  #
 ########################
 # Runs after .bashrc_local so any PATH entries it adds get deduped too.
-# path_dedupe() {
-#     local IFS=:
-#     local new_path=""
-#     for dir in $PATH; do
-#         [[ -d $dir ]] || continue
-#         [[ ":$new_path:" != *":$dir:"* ]] &&
-#             new_path="${new_path:+$new_path:}$dir"
-#     done
-#     PATH="$new_path"
-# }
-
-# Faster version using awk, but slightly heavier on startup. 
-# comment out if you want the above pure-Bash version instead.
+# Two-pass: fast awk dedup first (no fork per PATH entry), then a cheap
+# bash loop over the now-short deduped list to drop directories that no
+# longer exist. Gets both the speed and the cleanup.
 path_dedupe() {
-    PATH="$(awk -v RS=: -v ORS=: '!seen[$0]++' <<< "$PATH")"
-    PATH="${PATH%:}"
+    local deduped
+    deduped="$(awk -v RS=: -v ORS=: '!seen[$0]++' <<< "$PATH")"
+    deduped="${deduped%:}"
+
+    local IFS=:
+    local new_path=""
+    for dir in $deduped; do
+        [[ -d "$dir" ]] || continue
+        new_path="${new_path:+$new_path:}$dir"
+    done
+    PATH="$new_path"
 }
 
 [ -n "$PATH" ] && path_dedupe
@@ -414,11 +433,16 @@ export PATH
 ########################
 # READLINE TWEAKS     #
 ########################
-# Fix for some SSH/TTY issues: ensure completion character is handled sanely
-if [[ $- == *i* ]]; then
-    bind 'set completion-ignore-case on'
-    bind 'set show-all-if-ambiguous on'
-fi
+# (No need to re-check $- here -- the script already returns at the top
+# for any non-interactive shell, so we're always interactive by this point.)
+bind 'set completion-ignore-case on'
+bind 'set show-all-if-ambiguous on'
+
+# Optional: type a prefix, then Up/Down cycles history entries matching it,
+# instead of just the last/next command overall. Off by default -- uncomment
+# to try it.
+bind '"\e[A": history-search-backward'
+bind '"\e[B": history-search-forward'
 
 ########################
 # OPTIONAL EXTRAS     #

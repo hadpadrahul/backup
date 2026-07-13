@@ -1,0 +1,651 @@
+" ==================================================
+" Vim configuration (.vimrc)
+" Personal + Server safe
+" SSH / TTY compatible
+" No mandatory plugins
+" ==================================================
+
+scriptencoding utf-8
+
+set nocompatible
+
+"==================================================
+" XDG directories
+"==================================================
+
+let g:xdg_config_home = empty($XDG_CONFIG_HOME) ? expand('~/.config') : $XDG_CONFIG_HOME
+let g:xdg_data_home   = empty($XDG_DATA_HOME)   ? expand('~/.local/share') : $XDG_DATA_HOME
+let g:xdg_state_home  = empty($XDG_STATE_HOME)  ? expand('~/.local/state') : $XDG_STATE_HOME
+let g:xdg_cache_home  = empty($XDG_CACHE_HOME)  ? expand('~/.cache') : $XDG_CACHE_HOME
+
+"==================================================
+" Filetypes
+"==================================================
+
+filetype plugin indent on
+syntax enable
+
+"==================================================
+" Leader
+"==================================================
+
+let mapleader=" "
+
+set timeout
+set timeoutlen=800
+
+"==================================================
+" UI
+"==================================================
+
+set number
+set relativenumber
+
+set cursorline
+
+set nowrap
+
+set scrolloff=8
+set sidescrolloff=8
+
+set showcmd
+
+set mouse=a
+
+if exists('+signcolumn')
+    set signcolumn=yes
+endif
+
+"==================================================
+" Colors
+"==================================================
+
+set background=dark
+
+if exists('+termguicolors')
+    set termguicolors
+endif
+
+
+" Catppuccin if installed
+silent! colorscheme catppuccin
+
+" Safe fallback
+if !exists("g:colors_name")
+    silent! colorscheme habamax
+endif
+
+"==================================================
+" Cursor shape
+"==================================================
+
+" Normal  : block
+" Insert  : bar
+" Replace : underline
+
+if exists('$TERM')
+    let &t_EI = "\<Esc>[2 q"
+    let &t_SI = "\<Esc>[6 q"
+    let &t_SR = "\<Esc>[4 q"
+endif
+
+"==================================================
+" Statusline
+"==================================================
+
+set laststatus=2
+
+set statusline=%f%m%r%h%w\ [%{&filetype}]\ %=%l:%c\ %p%%
+
+"==================================================
+" Indentation
+"==================================================
+
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+
+set expandtab
+
+set autoindent
+set smartindent
+
+" Do not auto-create comment leaders
+set formatoptions-=c
+set formatoptions-=r
+set formatoptions-=o
+
+"==================================================
+" Folding
+"==================================================
+
+set foldmethod=indent
+set foldlevel=99
+
+"==================================================
+" Search behavior
+"==================================================
+
+set ignorecase
+set smartcase
+
+set incsearch
+set hlsearch
+
+if exists('+inccommand')
+    set inccommand=split
+endif
+
+"==================================================
+" Editing behavior
+"==================================================
+
+set hidden
+set confirm
+
+set backspace=indent,eol,start
+
+set updatetime=200
+set lazyredraw
+
+set ttimeout
+set ttimeoutlen=50
+
+set history=1000
+
+set noerrorbells
+set visualbell
+set t_vb=
+
+set autoread
+
+"==================================================
+" Better movement
+"==================================================
+
+" Wrapped lines behave like normal lines
+nnoremap j gj
+nnoremap k gk
+
+" Keep cursor centered while scrolling
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz
+
+"==================================================
+" File handling (XDG)
+"==================================================
+
+let s:backup_dir = g:xdg_state_home . '/vim/backup'
+let s:swap_dir   = g:xdg_state_home . '/vim/swap'
+
+for dir in [s:backup_dir, s:swap_dir]
+    if !isdirectory(dir)
+        call mkdir(dir, 'p')
+    endif
+endfor
+
+set backup
+set swapfile
+set writebackup
+
+let &backupdir = s:backup_dir
+let &directory = s:swap_dir
+
+"==================================================
+" Persistent undo + XDG state
+"==================================================
+
+if has('persistent_undo')
+
+    set undofile
+    set undolevels=2000
+
+    let s:undo_dir = g:xdg_state_home . '/vim/undo'
+
+    if !isdirectory(s:undo_dir)
+        call mkdir(s:undo_dir, 'p')
+    endif
+
+    let &undodir = s:undo_dir
+
+endif
+
+"==================================================
+" Clipboard
+"==================================================
+
+" Local clipboard
+if has('clipboard')
+    set clipboard=unnamedplus
+endif
+
+"==================================================
+" OSC52 clipboard over SSH
+"==================================================
+
+" Copies yanks from remote Vim to local terminal clipboard.
+" Requires terminal OSC52 support.
+
+function! OSC52Copy()
+    if !exists('v:event')
+        return
+    endif
+
+    let l:content = join(v:event.regcontents, "\n")
+
+    if empty(l:content)
+        return
+    endif
+
+    let l:encoded = system(
+        \ 'base64 | tr -d "\n"',
+        \ l:content
+        \ )
+
+    let l:sequence =
+        \ "\033]52;c;" . l:encoded . "\007"
+
+    call system(
+        \ 'printf "' .
+        \ substitute(l:sequence, '"', '\\"', 'g') .
+        \ '" > /dev/tty'
+        \ )
+
+endfunction
+
+
+if exists('##TextYankPost')
+
+    augroup OSC52
+        autocmd!
+
+        autocmd TextYankPost *
+            \ call OSC52Copy()
+
+    augroup END
+
+endif
+
+"==================================================
+" File searching
+"==================================================
+
+set path+=**
+
+set wildmenu
+set wildmode=longest:full,full
+
+set wildignore+=*/node_modules/*
+set wildignore+=*/.git/*
+set wildignore+=*/dist/*
+set wildignore+=*/build/*
+set wildignore+=*/target/*
+set wildignore+=*/coverage/*
+set wildignore+=*.pyc
+set wildignore+=*.o
+set wildignore+=*.obj
+set wildignore+=*.class
+
+
+"==================================================
+" Grep
+"==================================================
+
+if executable("rg")
+    set grepprg=rg\ --vimgrep\ --smart-case
+    set grepformat=%f:%l:%c:%m
+endif
+
+
+"==================================================
+" Completion
+"==================================================
+
+if exists('+completeopt')
+    set completeopt=menuone,noselect
+endif
+
+
+"==================================================
+" Filetype-specific indentation
+"==================================================
+
+augroup FiletypeIndent
+    autocmd!
+
+    " Two-space ecosystem languages
+    autocmd FileType lua,json,jsonc,yaml,yml,html,xml,css,scss,
+        \ javascript,javascriptreact,typescript,typescriptreact,toml,vim
+        \ setlocal tabstop=2 shiftwidth=2 softtabstop=2 expandtab
+
+    " Makefiles need real tabs
+    autocmd FileType make
+        \ setlocal noexpandtab tabstop=8 shiftwidth=8 softtabstop=0
+
+augroup END
+
+
+"==================================================
+" Netrw (built-in file explorer)
+"==================================================
+
+let g:netrw_banner=0
+let g:netrw_liststyle=3
+let g:netrw_winsize=25
+let g:netrw_browse_split=0
+let g:netrw_altv=1
+
+" Use XDG data directory for netrw files
+let g:netrw_home = g:xdg_data_home . '/vim'
+
+"==================================================
+" Persistent views
+"==================================================
+
+set viewoptions=cursor,folds,slash,unix
+
+
+augroup PersistentViews
+    autocmd!
+
+    autocmd BufWinLeave * silent! mkview
+
+    autocmd BufWinEnter *
+        \ if filereadable(expand('%')) |
+        \ silent! loadview |
+        \ endif
+
+augroup END
+
+"==================================================
+" Keymaps
+"==================================================
+
+"--------------------------------------------------
+" Escape
+"--------------------------------------------------
+
+" Insert mode: jk -> Esc
+inoremap jk <Esc>
+
+
+"--------------------------------------------------
+" Save / Quit
+"--------------------------------------------------
+
+nnoremap <leader>w :write<CR>
+nnoremap <leader>q :quit<CR>
+nnoremap <leader>wq :wq<CR>
+nnoremap <leader>Q :quit!<CR>
+
+
+"--------------------------------------------------
+" Search
+"--------------------------------------------------
+
+nnoremap <silent> <Esc><Esc> :nohlsearch<CR>
+
+nnoremap n nzzzv
+nnoremap N Nzzzv
+
+
+"--------------------------------------------------
+" Indenting
+"--------------------------------------------------
+
+vnoremap < <
+vnoremap > >
+
+vnoremap < <gv
+vnoremap > >gv
+
+
+"--------------------------------------------------
+" Window navigation
+"--------------------------------------------------
+
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
+
+
+"--------------------------------------------------
+" File explorer
+"--------------------------------------------------
+
+nnoremap <silent> <leader>e :Lexplore<CR>
+
+
+"--------------------------------------------------
+" Toggles
+"--------------------------------------------------
+
+nnoremap <leader>n :set relativenumber!<CR>
+
+nnoremap <leader>c :set cursorline!<CR>
+
+nnoremap <leader>l :set list!<CR>
+
+
+"--------------------------------------------------
+" Quickfix
+"--------------------------------------------------
+
+nnoremap ]q :cnext<CR>
+nnoremap [q :cprev<CR>
+
+nnoremap <leader>qo :copen<CR>
+nnoremap <leader>qc :cclose<CR>
+
+
+"==================================================
+" Commenting (no plugins)
+"==================================================
+
+function! ToggleComment(start, end) abort
+
+    if &commentstring == ''
+        echo "No commentstring"
+        return
+    endif
+
+    let cs = &commentstring
+
+    let left = substitute(cs, '%s.*', '', '')
+    let right = substitute(cs, '.*%s', '', '')
+
+    let lines = getline(a:start, a:end)
+
+    let all_commented = 1
+
+    for line in lines
+        if trim(line) !=# ''
+            if line !~ '^\s*' . escape(left, '\.^$*[]')
+                let all_commented = 0
+                break
+            endif
+        endif
+    endfor
+
+
+    let result = []
+
+    for line in lines
+
+        let indent = matchstr(line, '^\s*')
+        let text = substitute(line, '^\s*', '', '')
+
+        if text ==# ''
+            call add(result, line)
+            continue
+        endif
+
+
+        if all_commented
+
+            let text = substitute(
+                \ text,
+                \ '^' . escape(left,'\/.*$^~[]') . '\s*',
+                \ '',
+                \ '')
+
+            if right !=# ''
+                let text = substitute(
+                    \ text,
+                    \ '\s*' . escape(right,'\/.*$^~[]') . '$',
+                    \ '',
+                    \ '')
+            endif
+
+        else
+
+            let text = left . ' ' . text
+
+            if right !=# ''
+                let text .= ' ' . right
+            endif
+
+        endif
+
+
+        call add(result, indent . text)
+
+    endfor
+
+
+    call setline(a:start, result)
+
+endfunction
+
+
+nnoremap <silent> <leader>/ :
+    \call ToggleComment(line('.'), line('.'))<CR>
+
+xnoremap <silent> <leader>/ :
+    \<C-u>call ToggleComment(line("'<"), line("'>"))<CR>
+
+"==================================================
+" Terminal mode
+"==================================================
+
+if has("terminal")
+
+    tnoremap <Esc> <C-\><C-n>
+
+    " Optional terminal jk escape
+    tnoremap jk <C-\><C-n>
+
+endif
+
+"==================================================
+" Final autocommands
+"==================================================
+
+"--------------------------------------------------
+" Main autocommand group
+"--------------------------------------------------
+
+augroup MyVim
+    autocmd!
+
+    "----------------------------------------------
+    " Restore cursor position
+    "----------------------------------------------
+
+    autocmd BufReadPost *
+        \ if line("'\"") > 0 &&
+        \ line("'\"") <= line("$") |
+        \ execute "normal! g`\"" |
+        \ endif
+
+    "----------------------------------------------
+    " Equalize splits after resize
+    "----------------------------------------------
+
+    autocmd VimResized *
+        \ wincmd =
+
+    "----------------------------------------------
+    " Check for changed files
+    "----------------------------------------------
+
+    autocmd FocusGained,BufEnter *
+        \ checktime
+
+    "----------------------------------------------
+    " Create parent directories automatically
+    "----------------------------------------------
+
+    autocmd BufWritePre *
+        \ if !isdirectory(expand('%:p:h')) |
+        \ call mkdir(expand('%:p:h'), 'p') |
+        \ endif
+
+    "----------------------------------------------
+    " Disable heavy features for huge files
+    "----------------------------------------------
+
+    autocmd BufReadPre *
+        \ if getfsize(expand('%')) > 1024 * 1024 |
+        \ setlocal syntax=off |
+        \ setlocal foldmethod=manual |
+        \ setlocal noundofile |
+        \ endif
+
+    "----------------------------------------------
+    " Highlight yanks
+    "----------------------------------------------
+
+    if exists('##TextYankPost')
+
+        autocmd TextYankPost *
+            \ silent! execute "normal! \<Esc>"
+
+    endif
+
+
+augroup END
+
+"==================================================
+" Whitespace helpers
+"==================================================
+
+set list
+
+set listchars=
+    \tab:>-\ ,
+    \trail:·,
+    \nbsp:+
+
+"==================================================
+" Diff improvements
+"==================================================
+
+if exists('+diffopt')
+
+    set diffopt+=vertical
+
+    if exists('+diffopt')
+        set diffopt+=linematch:60
+    endif
+
+endif
+
+"==================================================
+" Terminal title
+"==================================================
+
+if exists('+title')
+    set title
+endif
+
+"==================================================
+" Final message cleanup
+"==================================================
+
+set shortmess+=I
+
+" ==================================================
+" End of configuration
+" ==================================================

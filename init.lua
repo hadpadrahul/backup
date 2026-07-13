@@ -39,20 +39,32 @@ vim.opt.sidescrolloff = 8
 vim.opt.signcolumn = "yes"      -- prevent text shifting when signs appear
 vim.opt.showcmd = true
 vim.opt.mouse = "a"             -- mouse support in all modes
+vim.opt.title = true            -- set terminal title from inside Neovim (handy across tmux panes/SSH)
+
+-- Per-mode cursor shape: block in normal, thin bar in insert, underline in replace
+vim.opt.guicursor = {
+  "n-v-c:block",
+  "i-ci-ve:ver25",
+  "r-cr:hor20",
+}
 
 -- Enable true color only if Neovim was built with support for it.
 if vim.fn.has("termguicolors") == 1 then
   vim.opt.termguicolors = true
 end
 
--- Safe builtin colorscheme (ships with Neovim, never errors, no plugin needed)
-pcall(vim.cmd.colorscheme, "habamax")
+-- Safe builtin colorscheme (ships with Neovim, never errors, no plugin needed).
+-- habamax only -- no third-party colorscheme attempt, since this config is
+-- deliberately plugin-free and one would just fail silently via pcall anyway.
+vim.opt.background = "dark"
+pcall(vim.cmd.colorscheme, "catppuccin") -- habamax
 
 -----------------------------------------------------
 -- Indentation (language-agnostic baseline)
 -----------------------------------------------------
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
+vim.opt.softtabstop = 4         -- Tab/Backspace move a full indent-width in insert mode
 vim.opt.expandtab = true
 vim.opt.autoindent = true
 vim.opt.smartindent = true
@@ -101,6 +113,13 @@ vim.opt.hlsearch = true
 -- Live preview substitutions (:s/.../.../) as you type, no plugin needed.
 vim.opt.inccommand = "split"
 
+-- Use ripgrep for :grep if it's available -- much faster than system grep
+-- and respects .gitignore. Falls back to Neovim's default grep otherwise.
+if vim.fn.executable("rg") == 1 then
+  vim.opt.grepprg = "rg --vimgrep --smart-case"
+  vim.opt.grepformat = "%f:%l:%c:%m"
+end
+
 -----------------------------------------------------
 -- Editing behavior
 -----------------------------------------------------
@@ -111,10 +130,14 @@ vim.opt.updatetime = 200
 vim.opt.lazyredraw = true        -- fewer redraws, helps over SSH
 vim.opt.ttimeout = true
 vim.opt.ttimeoutlen = 50         -- faster key recognition on high-latency links
+vim.opt.autoread = true          -- reload a file automatically if it changed on disk
 
 -- Let :find search subdirectories (built-in fuzzy-ish file finder, no plugin)
 vim.opt.path:append("**")
-vim.opt.wildignore:append({ "*/node_modules/*", "*/.git/*" })
+vim.opt.wildignore:append({
+  "*/node_modules/*", "*/.git/*", "*/dist/*", "*/build/*",
+  "*/target/*", "*/coverage/*", "*.pyc", "*.o", "*.obj", "*.class",
+})
 
 -----------------------------------------------------
 -- Files & undo (server safe)
@@ -162,9 +185,9 @@ if vim.env.SSH_CONNECTION then
       },
     }
 
-    -- Fallback: explicitly push every yank over OSC52 too. This makes
-    -- normal yanks (y, yy, visual y, etc.) reliably reach the local
-    -- clipboard, even if the clipboard provider isn't triggered.
+    -- Explicitly push every yank over OSC52 too. This makes normal yanks
+    -- (y, yy, visual y, etc.) reliably reach the local clipboard, even if
+    -- the clipboard provider isn't triggered on its own.
     local osc52_group = vim.api.nvim_create_augroup("OSC52Clipboard", {
       clear = true,
     })
@@ -213,12 +236,63 @@ vim.opt.listchars = {
 }
 
 -----------------------------------------------------
+-- Statusline (built-in, no plugin needed)
+-- A small LazyVim-style statusline using only core Neovim: mode, git
+-- branch (shells out to `git`, cached per working directory), filename
+-- and flags, filetype, live search match count, line:col, percentage.
+-----------------------------------------------------
+vim.opt.laststatus = 2   -- always show a statusline per window
+
+local mode_names = {
+  n = "NORMAL", no = "NORMAL", i = "INSERT", v = "VISUAL", V = "V-LINE",
+  ["\22"] = "V-BLOCK", c = "COMMAND", R = "REPLACE", t = "TERMINAL",
+  s = "SELECT", S = "S-LINE", ["\19"] = "S-BLOCK",
+}
+
+-- Cheap, cached git branch lookup -- only re-runs `git` when the cwd changes
+local git_branch_cache = { cwd = nil, branch = "" }
+local function git_branch()
+  if vim.fn.executable("git") == 0 then
+    return ""
+  end
+  local cwd = vim.fn.getcwd()
+  if git_branch_cache.cwd ~= cwd then
+    git_branch_cache.cwd = cwd
+    local out = vim.fn.systemlist("git rev-parse --abbrev-ref HEAD 2>/dev/null")
+    local branch = out and out[1]
+    git_branch_cache.branch = (branch and branch ~= "" and vim.v.shell_error == 0) and branch or ""
+  end
+  return git_branch_cache.branch ~= "" and (" " .. git_branch_cache.branch .. " ") or ""
+end
+
+-- Everything here is wrapped in pcall -- if anything goes wrong, you get a
+-- minimal fallback statusline instead of a broken/blank one.
+function _G.StatuslineActive()
+  local ok, result = pcall(function()
+    local mode = mode_names[vim.fn.mode()] or vim.fn.mode()
+    local branch = git_branch()
+    local search = ""
+    if vim.v.hlsearch == 1 then
+      local sc_ok, count = pcall(vim.fn.searchcount, { maxcount = 999 })
+      if sc_ok and count.total and count.total > 0 then
+        search = string.format(" [%d/%d]", count.current, count.total)
+      end
+    end
+    return " " .. mode .. " │" .. branch .. "%f%m%r%h%w" .. search .. " │ %y │ %l:%c %p%% "
+  end)
+  return ok and result or " %f %l:%c "
+end
+
+vim.opt.statusline = "%!v:lua.StatuslineActive()"
+
+-----------------------------------------------------
 -- Netrw (built-in file explorer -- the file browser when you have no plugins)
 -----------------------------------------------------
 vim.g.netrw_banner = 0        -- hide the help banner at the top
 vim.g.netrw_liststyle = 3     -- tree-style listing
 vim.g.netrw_winsize = 25      -- explorer takes 25% of the window width
 vim.g.netrw_browse_split = 0  -- open files in the same window by default
+vim.g.netrw_home = vim.fn.stdpath("data") .. "/vim"  -- keep netrw's own state out of ~/.config/nvim
 
 -----------------------------------------------------
 -- Keymaps (standard, low-surprise -- safe if you only know basic Vim)
@@ -256,6 +330,28 @@ map("n", "<C-h>", "<C-w>h", { desc = "Go to left window" })
 map("n", "<C-j>", "<C-w>j", { desc = "Go to window below" })
 map("n", "<C-k>", "<C-w>k", { desc = "Go to window above" })
 map("n", "<C-l>", "<C-w>l", { desc = "Go to right window" })
+
+-- Window resizing
+map("n", "<C-Up>", "<cmd>resize +2<CR>", { desc = "Increase window height" })
+map("n", "<C-Down>", "<cmd>resize -2<CR>", { desc = "Decrease window height" })
+map("n", "<C-Left>", "<cmd>vertical resize -2<CR>", { desc = "Decrease window width" })
+map("n", "<C-Right>", "<cmd>vertical resize +2<CR>", { desc = "Increase window width" })
+
+-- Buffer navigation
+map("n", "<S-h>", "<cmd>bprevious<CR>", { desc = "Previous buffer" })
+map("n", "<S-l>", "<cmd>bnext<CR>", { desc = "Next buffer" })
+map("n", "<leader>bd", "<cmd>bdelete<CR>", { desc = "Close buffer" })
+
+-- Keep cursor centered while scrolling
+map("n", "<C-d>", "<C-d>zz", { desc = "Scroll down, keep cursor centered" })
+map("n", "<C-u>", "<C-u>zz", { desc = "Scroll up, keep cursor centered" })
+
+-- Move by screen line instead of logical line. With 'wrap' off globally
+-- (see UI section above), j/k and gj/gk behave identically, so this is a
+-- no-op right now -- only matters if you later enable wrap for a prose
+-- filetype (markdown, text, gitcommit). Uncomment if/when you do.
+-- map("n", "j", "gj")
+-- map("n", "k", "gk")
 
 -----------------------------------------------------
 -- Commenting
@@ -423,4 +519,3 @@ vim.api.nvim_create_autocmd("BufReadPre", {
 -- ==================================================
 -- End of configuration
 -- ==================================================
-

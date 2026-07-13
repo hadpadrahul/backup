@@ -32,6 +32,12 @@
 - `mise` → development tool runtime manager (installed via official APT repo)
 - Developer CLI tools → installed via `mise use -g <tool>`
 
+# XDG Base Directory Specification
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_STATE_HOME="$HOME/.local/state"
+export XDG_CACHE_HOME="$HOME/.cache"
+
 ---
 
 # 1. CORE CLI KIT (DAILY USE)
@@ -216,11 +222,20 @@ espanso (text expansion system across OS)
 sudo apt update && sudo apt install -y \
 git curl wget tmux htop bash-completion rsync \
 zip unzip tar xz-utils \
-build-essential ca-certificates gnupg software-properties-common \
+build-essential ca-certificates gnupg \
 less man-db manpages \
-dnsutils net-tools pciutils usbutils lsof strace \
-file procps iproute2 iputils-ping traceroute \
-age jq ncdu
+dnsutils lsof strace \
+file procps iproute2 iputils-ping \
+ncdu
+```
+
+## optional tools
+
+```bash
+sudo apt update && sudo apt install -y \
+mtr-tiny \
+pciutils usbutils \
+software-properties-common
 ```
 
 ## Official Repository Tools
@@ -238,13 +253,15 @@ mise use -g \
 fzf fd ripgrep bat eza zoxide neovim yazi \
 doggo carapace xh sd yq \
 github:dalance/procs hyperfine watchexec \
-github:ouch-org/ouch fastfetch duf dust usage
+github:ouch-org/ouch fastfetch duf dust usage jq
 ```
+
+Install jq through apt if needed in scripts or anywhere else instead of mise
 
 ## optional tools
 
 ```bash
-mise use -g lazygit btop ncdu gdu trippy tealdeer
+mise use -g age lazygit btop gdu trippy tealdeer
 ```
 
 ## python tooling
@@ -258,22 +275,33 @@ uv tool install --python 3.13 posting
 
 # 13. MAINTENANCE SCRIPTS
 
-## Bash history dedupe (preserve timestamps)
+## Bash history dedupe (preserve timestamps, remove only `cd` and `cd ..`)
 
 ```bash
-tac "$HISTFILE" | awk '/^#[0-9]+$/{ts=$0;next}!s[$0]++&&!/^(clear|cls|l|ls|la|ll|lh|pwd|exit|cd|cd \.\.|history|top|htop|v)$/{if(ts)print ts;print;ts=""}' | tac >"$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE" && history -c && history -r
+tac "$HISTFILE" | awk '/^#[0-9]+$/{ts=$0;next}!s[$0]++&&!/^(cleawr|cls|l|ls|la|ll|lh|pwd|exit|cd|cd \.\.|history|top|htop|v)$/{if(ts)print ts;print;ts=""}' | tac >"$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE" && history -c && history -r
 ```
 
-## Bash history dedupe (remove timestamps)
+## Bash history dedupe (remove timestamps, remove only `cd` and `cd ..`)
 
 ```bash
-tac "$HISTFILE" | awk '!/^#[0-9]+$/&&!s[$0]++&&!/^(clear|cls|l|ls|la|ll|lh|pwd|exit|cd|cd \.\.|history|top|htop|v)$/' | tac >"$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE" && history -c && history -r
+tac "$HISTFILE" | awk '!/^#[0-9]+$/&&!s[$0]++&&!/^(cleawr|cls|l|ls|la|ll|lh|pwd|exit|cd|cd \.\.|history|top|htop|v)$/' | tac >"$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE" && history -c && history -r
+```
+## Bash history dedupe (remove timestamps, remove all `cd` variants)
+
+```bash
+tac "$HISTFILE" | awk '!/^#[0-9]+$/&&!s[$0]++&&!/^(cleawr|cls|l|ls|la|ll|lh|pwd|exit|history|top|htop|v)$/&&!/^cd($| )/' | tac >"$HISTFILE.tmp" && mv "$HISTFILE.tmp" "$HISTFILE" && history -c && history -r
 ```
 
-## PowerShell dedupe
+## PowerShell dedupe (remove only `cd` and `cd ..`)
 
 ```powershell
-$h=(Get-PSReadLineOption).HistorySavePath;$l=[IO.File]::ReadAllLines($h);$s=@{};$o=for($i=$l.Length-1;$i-ge0;$i--){if(!$s[$l[$i]]-and$l[$i]-notmatch'^(clear|cls|l|ls|la|ll|lh|pwd|exit|cd|history|top|htop|v)$'){$s[$l[$i]]=$true;$l[$i]}};[array]::Reverse($o);$o|Set-Content $h
+$h=(Get-PSReadLineOption).HistorySavePath;$l=[IO.File]::ReadAllLines($h);$s=@{};$o=for($i=$l.Length-1;$i -ge 0;$i--){if(!$s[$l[$i]] -and $l[$i] -notmatch '^(cleawr|cls|l|ls|la|ll|lh|pwd|exit|cd|cd \.\.|history|top|htop|v)$'){$s[$l[$i]]=$true;$l[$i]}};[array]::Reverse($o);$o|Set-Content $h
+```
+
+## PowerShell dedupe (remove all `cd` variants)
+
+```powershell
+$h=(Get-PSReadLineOption).HistorySavePath;$l=[IO.File]::ReadAllLines($h);$s=@{};$o=for($i=$l.Length-1;$i -ge 0;$i--){if(!$s[$l[$i]] -and $l[$i] -notmatch '^(cleawr|cls|l|ls|la|ll|lh|pwd|exit|history|top|htop|v)$' -and $l[$i] -notmatch '^cd($| )'){$s[$l[$i]]=$true;$l[$i]}};[array]::Reverse($o);$o|Set-Content $h
 ```
 
 ## PowerShell sort unique
