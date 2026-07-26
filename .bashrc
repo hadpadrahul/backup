@@ -457,7 +457,10 @@ bind '"\e[B": history-search-forward'
 ########################
 # Multi-shell completion framework (bridges completions from zsh/fish/etc.)
 if has carapace; then
-    export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
-    export PATH="$HOME/.config/carapace/bin:$PATH"
+    export CARAPACE_BRIDGES="zsh,fish,bash,inshellisense"
+
+    CARAPACE_BIN="${XDG_CONFIG_HOME:-$HOME/.config}/carapace/bin"
+    [[ -d "$CARAPACE_BIN" ]] && export PATH="$PATH:$CARAPACE_BIN"
+
     source <(carapace _carapace bash)
 fi

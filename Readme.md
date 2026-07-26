@@ -153,6 +153,7 @@ PSReadLine (PowerShell history + Ctrl+R search)
 fzf history search (interactive shell history filtering)  
 atuin (optional: persistent distributed shell history database)  
 carapace (unified completion engine across CLI tools)
+(for unsupported tools generate bash-completion scripts or use bridge for pwsh)
 
 ---
 
@@ -252,7 +253,7 @@ Kubernetes (kubectl)
 mise use -g \
 fzf fd ripgrep bat eza zoxide neovim yazi \
 doggo carapace xh sd yq \
-github:dalance/procs hyperfine watchexec \
+hyperfine watchexec \
 github:ouch-org/ouch fastfetch duf dust usage jq
 ```
 
@@ -261,15 +262,16 @@ Install jq through apt if needed in scripts or anywhere else instead of mise
 ## optional tools
 
 ```bash
-mise use -g age lazygit btop gdu trippy tealdeer
+mise use -g age lazygit btop gdu trippy aqua:tealdeer-rs/tealdeer github:dalance/procs
 ```
 
 ## python tooling
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install --python 3.13 posting
+uv tool install --python 3.13 posting 
 ```
+There exists one rust alternative too
 
 ---
 
