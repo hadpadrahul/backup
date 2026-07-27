@@ -7,6 +7,7 @@
 #   - mise installs fast-moving CLI tools (nvim, rg, fd, eza, doggo, etc.)
 #   mise MUST activate before any `command -v` check for mise-managed tools,
 #   which is why it's the very first thing in this file.
+#   ~/.local/bin may already come from .profile at top. for (echo "$PATH" | tr ':' '\n')
 
 ########################
 # MISE (must run first)
@@ -25,6 +26,37 @@ if has mise; then
     fi
 fi
 
+
+########################
+# XDG BASE DIRECTORIES
+########################
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+
+
+########################
+# USER TOOL PATHS      #
+########################
+# User-installed CLI tools:
+# ~/.local/bin       -> uv tools, pipx, pip --user, standalone installers
+# ~/.cargo/bin       -> Rust cargo installs
+# ~/.local/share/bin -> XDG-style installers
+# ~/bin              -> personal scripts
+for dir in \
+    "$HOME/bin" \
+    "$HOME/.local/bin" \
+    "$HOME/.cargo/bin" \
+    "$HOME/.local/share/bin" \
+    "$XDG_CONFIG_HOME/carapace/bin"
+do
+    if [ -d "$dir" ]; then
+        export PATH="$PATH:$dir"
+    fi
+done
+
+
 ############################
 # INTERACTIVE SHELL ONLY  #
 ############################
@@ -40,6 +72,7 @@ if [[ "$TERM" != "linux" && -t 1 ]]; then
     echo -ne '\e[2 q'
 fi
 
+
 ########################
 # SHELL MODE DETECTION #
 ########################
@@ -52,6 +85,7 @@ fi
 if [ -n "$TMUX" ]; then
     export IS_TMUX=1
 fi
+
 
 ########################
 # CORE SHELL BEHAVIOR #
@@ -69,8 +103,10 @@ shopt -s no_empty_cmd_completion   # don't try to complete on an empty prompt li
 # shopt -s globstar      # uncomment: enable recursive ** globbing
 # shopt -s autocd        # deliberately left off: typing a bare dir name would cd into it
 
+# set -o vi
 set -o pipefail          # a pipeline fails if any stage fails, not just the last
 umask 022                # secure default file permissions
+
 
 ############################
 # HISTORY CONFIG          #
@@ -99,6 +135,7 @@ fi
 # Belt-and-suspenders: also flush history on shell exit/kill
 trap 'history -a' EXIT
 
+
 ########################
 # LESS (PAGER) CONFIG #
 ########################
@@ -108,13 +145,6 @@ export LESS="-FRX"
 # Smart previews for less (archives, PDFs, etc.) if lesspipe is installed
 [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
 
-########################
-# XDG BASE DIRECTORIES
-########################
-export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
-export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 ######################
 # NVIM CONFIG        #
@@ -125,12 +155,14 @@ if has nvim; then
     export SUDO_EDITOR="$(command -v nvim)"
 fi
 
+
 ########################
 # DEBIAN CHROOT INFO  #
 ########################
 if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
+
 
 ########################
 # PROMPT CONFIG       #
@@ -183,6 +215,7 @@ xterm*|rxvt*)
     ;;
 esac
 
+
 ########################
 # CORE COLOR ALIASES  #
 ########################
@@ -196,10 +229,12 @@ if has dircolors; then
     alias fgrep='grep -F --color=auto'
 fi
 
+
 ########################
 # USER ALIASES        #
 ########################
 [ -f ~/.bash_aliases ] && . ~/.bash_aliases
+
 
 ########################
 # TOOL ALIASES        #
@@ -312,6 +347,7 @@ else
     alias l='ls -CF'
 fi
 
+
 ########################
 # HELPER FUNCTIONS     #
 ########################
@@ -321,12 +357,14 @@ mkcd() {
     mkdir -p -- "$1" && cd -- "$1"
 }
 
+
 ########################
 # SAFER FILE OPS      #
 ########################
 alias rm='rm -Iv'
 alias cp='cp -i'
 alias mv='mv -i'
+
 
 ########################
 # FZF CONFIG          #
@@ -375,6 +413,7 @@ if has fzf; then
 
 fi
 
+
 ########################
 # ZOXIDE CONFIG       #
 ########################
@@ -386,6 +425,7 @@ export _ZO_FZF_OPTS="--height=40% --reverse --border"
 if has zoxide; then
     eval "$(zoxide init bash)"
 fi
+
 
 ########################
 # BASH COMPLETION     #
@@ -400,35 +440,23 @@ if ! shopt -oq posix; then
     fi
 fi
 
+
 ########################
 # LOCAL MACHINE OVERRIDES
 ########################
 # Optional per-machine config (not tracked in dotfiles)
 [ -f ~/.bashrc_local ] && . ~/.bashrc_local
 
-########################
-# PATH DEDUPLICATION  #
-########################
-# Runs after .bashrc_local so any PATH entries it adds get deduped too.
-# Two-pass: fast awk dedup first (no fork per PATH entry), then a cheap
-# bash loop over the now-short deduped list to drop directories that no
-# longer exist. Gets both the speed and the cleanup.
-path_dedupe() {
-    local deduped
-    deduped="$(awk -v RS=: -v ORS=: '!seen[$0]++' <<< "$PATH")"
-    deduped="${deduped%:}"
 
-    local IFS=:
-    local new_path=""
-    for dir in $deduped; do
-        [[ -d "$dir" ]] || continue
-        new_path="${new_path:+$new_path:}$dir"
-    done
-    PATH="$new_path"
-}
+########################
+# CARAPACE            #
+########################
+# Multi-shell completion framework (bridges completions from zsh/fish/etc.)
+if has carapace; then
+    export CARAPACE_BRIDGES="zsh,fish,bash,inshellisense"
+    source <(carapace _carapace bash)
+fi
 
-[ -n "$PATH" ] && path_dedupe
-export PATH
 
 ########################
 # READLINE TWEAKS     #
@@ -444,6 +472,32 @@ bind 'set show-all-if-ambiguous on'
 bind '"\e[A": history-search-backward'
 bind '"\e[B": history-search-forward'
 
+
+########################
+# PATH DEDUPLICATION  #
+########################
+# Runs after .bashrc_local so any PATH entries it adds get deduped too.
+# Two-pass: fast awk dedup first (no fork per PATH entry), then a cheap
+# bash loop over the now-short deduped list to drop directories that no
+# longer exist. Gets both the speed and the cleanup.
+path_dedupe() {
+    local deduped
+    deduped="$(awk -v RS=: -v ORS=: 'length && !seen[$0]++' <<< "$PATH")"
+    deduped="${deduped%:}"
+
+    local IFS=:
+    local new_path=""
+    for dir in $deduped; do
+        [[ -d "$dir" ]] || continue
+        new_path="${new_path:+$new_path:}$dir"
+    done
+    PATH="$new_path"
+}
+
+[ -n "$PATH" ] && path_dedupe
+export PATH
+
+
 ########################
 # OPTIONAL EXTRAS     #
 ########################
@@ -451,16 +505,3 @@ bind '"\e[B": history-search-forward'
 # if has fastfetch; then
 #     fastfetch --config ~/.config/fastfetch/config.jsonc
 # fi
-
-########################
-# CARAPACE            #
-########################
-# Multi-shell completion framework (bridges completions from zsh/fish/etc.)
-if has carapace; then
-    export CARAPACE_BRIDGES="zsh,fish,bash,inshellisense"
-
-    CARAPACE_BIN="${XDG_CONFIG_HOME:-$HOME/.config}/carapace/bin"
-    [[ -d "$CARAPACE_BIN" ]] && export PATH="$PATH:$CARAPACE_BIN"
-
-    source <(carapace _carapace bash)
-fi
